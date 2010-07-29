@@ -6,23 +6,29 @@ class TestApp < Sinatra::Base
   set :root, File.dirname(__FILE__)
   set :static, true
 
-  get '/' do
+  def self.get_page(path, &handler)
+    template_name = ('template_' + path.gsub(/[^a-z]/i, '')).to_sym
+    template(template_name, &handler)
+    get(path) { erb(template_name) }
+  end
+
+  get_page '/' do
     'Hello world!'
   end
 
-  get '/foo' do
+  get_page '/foo' do
     'Another World'
   end
 
-  get '/redirect' do
+  get_page '/redirect' do
     redirect '/redirect_again'
   end
 
-  get '/redirect_again' do
+  get_page '/redirect_again' do
     redirect '/landed'
   end
 
-  get '/redirect/:times/times' do
+  get_page '/redirect/:times/times' do
     times = params[:times].to_i
     if times.zero?
       "redirection complete"
@@ -31,19 +37,19 @@ class TestApp < Sinatra::Base
     end
   end
 
-  get '/landed' do
+  get_page '/landed' do
     "You landed"
   end
 
-  get '/with-quotes' do
+  get_page '/with-quotes' do
     %q{"No," he said, "you can't do that."}
   end
 
-  get '/form/get' do
+  get_page '/form/get' do
     '<pre id="results">' + params[:form].to_yaml + '</pre>'
   end
 
-  get '/favicon.ico' do
+  get_page '/favicon.ico' do
     nil
   end
 
@@ -55,17 +61,17 @@ class TestApp < Sinatra::Base
     "The requested object was deleted"
   end
 
-  get '/redirect_back' do
+  get_page '/redirect_back' do
     redirect back
   end
 
-  get '/set_cookie' do
+  get_page '/set_cookie' do
     cookie_value = 'test_cookie'
     response.set_cookie('capybara', cookie_value)
     "Cookie set to #{cookie_value}"
   end
 
-  get '/get_cookie' do
+  get_page '/get_cookie' do
     request.cookies['capybara']
   end
 

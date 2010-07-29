@@ -1,4 +1,4 @@
-require 'capybara/spec/test_app'
+require File.dirname(__FILE__) + '/test_app'
 
 shared_examples_for 'driver' do
 
