@@ -66,13 +66,18 @@ class TestApp < Sinatra::Base
   end
 
   get_page '/set_cookie' do
+    <<-HTML
+    <%
     cookie_value = 'test_cookie'
     response.set_cookie('capybara', cookie_value)
-    "Cookie set to #{cookie_value}"
+    %>
+    
+    Cookie set to <%= cookie_value %>
+    HTML
   end
 
   get_page '/get_cookie' do
-    request.cookies['capybara']
+    "<%= request.cookies['capybara'] %>"
   end
 
   get '/:view' do |view|
