@@ -5,6 +5,7 @@ shared_examples_for "all" do
     end
 
     it "should find all elements using the given locator" do
+      Capybara.default_selector = :xpath
       @session.all('//p').should have(3).elements
       @session.all('//h1').first.text.should == 'This is a test'
       @session.all("//input[@id='test_field']").first[:value].should == 'monkey'

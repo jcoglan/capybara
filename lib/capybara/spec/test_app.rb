@@ -6,29 +6,29 @@ class TestApp < Sinatra::Base
   set :root, File.dirname(__FILE__)
   set :static, true
 
-  def self.get_page(path, &handler)
+  def self.page(method, path, &handler)
     template_name = ('template_' + path.gsub(/[^a-z]/i, '')).to_sym
     template(template_name, &handler)
-    get(path) { erb(template_name) }
+    __send__(method, path) { erb(template_name) }
   end
 
-  get_page '/' do
+  page :get, '/' do
     'Hello world!'
   end
 
-  get_page '/foo' do
+  page :get, '/foo' do
     'Another World'
   end
 
-  get_page '/redirect' do
+  get '/redirect' do
     redirect '/redirect_again'
   end
 
-  get_page '/redirect_again' do
+  get '/redirect_again' do
     redirect '/landed'
   end
 
-  get_page '/redirect/:times/times' do
+  page :get, '/redirect/:times/times' do
     times = params[:times].to_i
     if times.zero?
       "redirection complete"
@@ -37,35 +37,39 @@ class TestApp < Sinatra::Base
     end
   end
 
-  get_page '/landed' do
+  page :get, '/landed' do
     "You landed"
   end
 
-  get_page '/with-quotes' do
+  page :get, '/with-quotes' do
     %q{"No," he said, "you can't do that."}
   end
 
-  get_page '/form/get' do
-    '<pre id="results">' + params[:form].to_yaml + '</pre>'
+  page :get, '/form/get' do
+    '<pre id="results"><%= params[:form].to_yaml %></pre>'
   end
 
-  get_page '/favicon.ico' do
-    nil
+  page :get, '/favicon.ico' do
+    ''
   end
 
   post '/redirect' do
     redirect '/redirect_again'
   end
 
-  delete "/delete" do
+  page :get, "/delete" do
     "The requested object was deleted"
   end
 
-  get_page '/redirect_back' do
+  page :delete, "/delete" do
+    "The requested object was deleted"
+  end
+
+  get '/redirect_back' do
     redirect back
   end
 
-  get_page '/set_cookie' do
+  page :get, '/set_cookie' do
     <<-HTML
     <%
     cookie_value = 'test_cookie'
@@ -76,7 +80,7 @@ class TestApp < Sinatra::Base
     HTML
   end
 
-  get_page '/get_cookie' do
+  page :get, '/get_cookie' do
     "<%= request.cookies['capybara'] %>"
   end
 
@@ -84,19 +88,23 @@ class TestApp < Sinatra::Base
     erb view.to_sym
   end
 
-  post '/form' do
-    '<pre id="results">' + params[:form].to_yaml + '</pre>'
+  page :post, '/form' do
+    '<pre id="results"><%= params[:form].to_yaml %></pre>'
   end
 
-  post '/upload' do
+  page :post, '/upload' do
+    <<-HTML
+    <%=
     begin
       buffer = []
-      buffer << "Content-type: #{params[:form][:document][:type]}"
-      buffer << "File content: #{params[:form][:document][:tempfile].read}"
+      buffer << "Content-type: " + params[:form][:document][:type]
+      buffer << "File content: " + params[:form][:document][:tempfile].read
       buffer.join(' | ')
     rescue
       'No file uploaded'
     end
+    %>
+    HTML
   end
 end
 
