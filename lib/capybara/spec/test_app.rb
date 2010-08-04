@@ -29,12 +29,16 @@ class TestApp < Sinatra::Base
   end
 
   page :get, '/redirect/:times/times' do
+    <<-HTML
+    <%
     times = params[:times].to_i
-    if times.zero?
-      "redirection complete"
-    else
-      redirect "/redirect/#{times - 1}/times"
+    if times.zero? %>
+      redirection complete
+    <% else
+      redirect "/redirect/" + (times - 1).to_s + "/times"
     end
+    %>
+    HTML
   end
 
   page :get, '/landed' do
