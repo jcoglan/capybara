@@ -42,10 +42,25 @@ shared_examples_for "find" do
       end
     end
 
+    context "with id selectors" do
+      it "should find the first element using the given locator" do
+        @session.find(:id, 'john_monkey').text.should == 'Monkey John'
+        @session.find(:id, 'red').text.should == 'Redirect'
+      end
+    end
+
     context "with xpath selectors" do
       it "should find the first element using the given locator" do
         @session.find(:xpath, '//h1').text.should == 'This is a test'
         @session.find(:xpath, "//input[@id='test_field']")[:value].should == 'monkey'
+      end
+    end
+
+    context "with custom selector" do
+      it "should use the custom selector" do
+        Capybara.add_selector(:monkey) { |name| ".//*[@id='#{name}_monkey']" }
+        @session.find(:monkey, 'john').text.should == 'Monkey John'
+        @session.find(:monkey, 'paul').text.should == 'Monkey Paul'
       end
     end
 
@@ -72,7 +87,7 @@ shared_examples_for "find" do
 
     it "should accept an XPath instance and respect the order of paths" do
       @session.visit('/form')
-      @xpath = Capybara::XPath.text_field('Name')
+      @xpath = XPath::HTML.fillable_field('Name')
       @session.find(@xpath).value.should == 'John Smith'
     end
 

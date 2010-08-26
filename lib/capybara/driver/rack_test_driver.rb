@@ -36,7 +36,8 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
 
     def set(value)
       if tag_name == 'input' and type == 'radio'
-        driver.html.xpath("//input[@name=#{Capybara::XPath.escape(self[:name])}]").each { |node| node.remove_attribute("checked") }
+        other_radios_xpath = XPath.generate { |x| x.anywhere(:input)[x.attr(:name).equals(self[:name])] }.to_s
+        driver.html.xpath(other_radios_xpath).each { |node| node.remove_attribute("checked") }
         native['checked'] = 'checked'
       elsif tag_name == 'input' and type == 'checkbox'
         if value && !native['checked']
@@ -51,32 +52,18 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
       end
     end
 
-    def select_option(option)
-      if native['multiple'] != 'multiple'
-        native.xpath(".//option[@selected]").each { |node| node.remove_attribute("selected") }
+    def select_option
+      if select_node['multiple'] != 'multiple'
+        select_node.find(".//option[@selected]").each { |node| node.native.remove_attribute("selected") }
       end
-
-      if option_node = native.xpath(".//option[text()=#{Capybara::XPath.escape(option)}]").first ||
-                       native.xpath(".//option[contains(.,#{Capybara::XPath.escape(option)})]").first
-        option_node["selected"] = 'selected'
-      else
-        options = native.xpath(".//option").map { |o| "'#{o.text}'" }.join(', ')
-        raise Capybara::OptionNotFound, "No such option '#{option}' in this select box. Available options: #{options}"
-      end
+      native["selected"] = 'selected'
     end
 
-    def unselect_option(option)
-      if native['multiple'] != 'multiple'
-        raise Capybara::UnselectNotAllowed, "Cannot unselect option '#{option}' from single select box."
+    def unselect_option
+      if select_node['multiple'] != 'multiple'
+        raise Capybara::UnselectNotAllowed, "Cannot unselect option from single select box."
       end
-
-      if option_node = native.xpath(".//option[text()=#{Capybara::XPath.escape(option)}]").first ||
-                       native.xpath(".//option[contains(.,#{Capybara::XPath.escape(option)})]").first
-        option_node.remove_attribute('selected')
-      else
-        options = native.xpath(".//option").map { |o| "'#{o.text}'" }.join(', ')
-        raise Capybara::OptionNotFound, "No such option '#{option}' in this select box. Available options: #{options}"
-      end
+      native.remove_attribute('selected')
     end
 
     def click
@@ -106,6 +93,11 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
 
   private
 
+    # a reference to the select node if this is an option node
+    def select_node
+      find('./ancestor::select').first
+    end
+
     def type
       native[:type]
     end
@@ -119,16 +111,16 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     def params(button)
       params = {}
 
-      native.xpath(".//input[not(@type) or (@type!='radio' and @type!='checkbox' and @type!='submit' and @type!='image')]").map do |input|
+      native.xpath(".//input[not(@disabled) and (not(@type) or (@type!='radio' and @type!='checkbox' and @type!='submit' and @type!='image'))]").map do |input|
         merge_param!(params, input['name'].to_s, input['value'].to_s)
       end
-      native.xpath(".//textarea").map do |textarea|
+      native.xpath(".//textarea[not(@disabled)]").map do |textarea|
         merge_param!(params, textarea['name'].to_s, textarea.text.to_s)
       end
-      native.xpath(".//input[@type='radio' or @type='checkbox']").map do |input|
+      native.xpath(".//input[not(@disabled) and (@type='radio' or @type='checkbox')]").map do |input|
         merge_param!(params, input['name'].to_s, input['value'].to_s) if input['checked']
       end
-      native.xpath(".//select").map do |select|
+      native.xpath(".//select[not(@disabled)]").map do |select|
         if select['multiple'] == 'multiple'
           options = select.xpath(".//option[@selected]")
           options.each do |option|
@@ -140,7 +132,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
           merge_param!(params, select['name'].to_s, (option['value'] || option.text).to_s) if option
         end
       end
-      native.xpath(".//input[@type='file']").map do |input|
+      native.xpath(".//input[not(@disabled) and @type='file']").map do |input|
         unless input['value'].to_s.empty?
           if multipart?
             content_type = MIME::Types.type_for(input['value'].to_s).first.to_s
@@ -200,7 +192,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
 
   def process(method, path, attributes = {})
     return if path.gsub(/^#{request_path}/, '') =~ /^#/
-    send(method, path, attributes, env)
+    send(method, to_binary(path), to_binary( attributes ), env)
     follow_redirects!
   end
 
@@ -216,9 +208,23 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     response.status
   end
 
+  def to_binary(object)
+    return object unless Kernel.const_defined?(:Encoding)
+
+    if object.respond_to?(:force_encoding)
+      object.dup.force_encoding(Encoding::ASCII_8BIT)
+    elsif object.respond_to?(:each_pair) #Hash
+      {}.tap { |x| object.each_pair {|k,v| x[to_binary(k)] = to_binary(v) } }
+    elsif object.respond_to?(:each) #Array
+      object.map{|x| to_binary(x)}
+    else
+      object
+    end
+  end
+
   def submit(method, path, attributes)
     path = request_path if not path or path.empty?
-    send(method, path, attributes, env)
+    send(method, to_binary(path), to_binary(attributes), env)
     follow_redirects!
   end
 

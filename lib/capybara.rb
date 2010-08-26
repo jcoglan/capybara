@@ -1,11 +1,11 @@
 require 'timeout'
 require 'nokogiri'
+require 'xpath'
 
 module Capybara
   class CapybaraError < StandardError; end
   class DriverNotFoundError < CapybaraError; end
   class ElementNotFound < CapybaraError; end
-  class OptionNotFound < ElementNotFound; end
   class UnselectNotAllowed < CapybaraError; end
   class NotSupportedByDriverError < CapybaraError; end
   class TimeoutError < CapybaraError; end
@@ -45,11 +45,18 @@ module Capybara
     def configure
       yield self
     end
+
+    def add_selector(name, &block)
+      selectors[name.to_sym] = block
+    end
+
+    def selectors
+      @selectors ||= {}
+    end
   end
 
   autoload :Server,     'capybara/server'
   autoload :Session,    'capybara/session'
-  autoload :XPath,      'capybara/xpath'
   autoload :Node,       'capybara/node'
   autoload :Document,   'capybara/node'
   autoload :Element,    'capybara/node'
@@ -71,3 +78,7 @@ Capybara.configure do |config|
   config.default_wait_time = 2
   config.ignore_hidden_elements = false
 end
+
+Capybara.add_selector(:xpath) { |xpath| xpath }
+Capybara.add_selector(:id)    { |id| XPath.generate { |x| x.descendant(:*)[x.attr(:id) == id] } }
+Capybara.add_selector(:css)   { |css| XPath::HTML.from_css(css) }
