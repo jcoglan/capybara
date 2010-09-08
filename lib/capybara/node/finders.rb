@@ -4,12 +4,12 @@ module Capybara
 
       ##
       #
-      # Find an Element based on the given arguments. +find+ will raise an error if the element
+      # Find an {Capybara::Element} based on the given arguments. +find+ will raise an error if the element
       # is not found. The error message can be customized through the +:message+ option.
       #
       # If the driver is capable of executing JavaScript, +find+ will wait for a set amount of time
       # and continuously retry finding the element until either the element is found or the time
-      # expires. The length of time +find+ will wait is controlled through Capybara.default_wait_time
+      # expires. The length of time +find+ will wait is controlled through {Capybara.default_wait_time}
       # and defaults to 2 seconds.
       #
       # +find+ takes the same options as +all+.
@@ -19,6 +19,7 @@ module Capybara
       #     page.find('li', :text => 'Quox').click_link('Delete')
       #
       # @param (see Capybara::Node::Finders#all)
+      # @option options [String] :message     An error message in case the element can't be found
       # @return [Capybara::Element]           The found element
       # @raise  [Capybara::ElementNotFound]   If the element can't be found before time expires
       #
@@ -98,7 +99,7 @@ module Capybara
       #
       #
       # If the type of selector is left out, Capybara uses
-      # Capybara.default_selector. It's set to :css by default.
+      # {Capybara.default_selector}. It's set to :css by default.
       #
       #     page.all("a#person_123")
       #
@@ -114,14 +115,15 @@ module Capybara
       # @param [:css, :xpath, String] kind_or_locator     Either the kind of selector or the selector itself
       # @param [String] locator                           The selector
       # @param [Hash{Symbol => Object}] options           Additional options
-      # @option options [String] text                     Only find elements which contain this text
+      # @option options [String, Regexp] text             Only find elements which contain this text or match this regexp
       # @option options [Boolean] visible                 Only find elements that are visible on the page
       # @return [Capybara::Element]                       The found elements
       #
       def all(*args)
         options = if args.last.is_a?(Hash) then args.pop else {} end
 
-        results = XPath::HTML.wrap(normalize_locator(*args)).map do |path|
+        selector = Capybara::Selector.normalize(*args)
+        results = XPath::HTML.wrap(selector).map do |path|
           base.find(path)
         end.flatten
 
@@ -139,11 +141,6 @@ module Capybara
       end
 
     protected
-
-      def normalize_locator(kind, locator=nil)
-        kind, locator = Capybara.default_selector, kind if locator.nil?
-        Capybara.selectors[kind.to_sym].call(locator)
-      end
 
       def wait_conditionally_until
         if driver.wait? then session.wait_until { yield } else yield end
