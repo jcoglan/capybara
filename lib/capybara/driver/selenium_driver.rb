@@ -18,7 +18,7 @@ class Capybara::Driver::Selenium < Capybara::Driver::Base
 
     def value
       if tag_name == "select" and self[:multiple]
-        native.find_elements(:xpath, ".//option").select { |n| n.selected? }.map { |n| n.text }
+        native.find_elements(:xpath, ".//option").select { |n| n.selected? }.map { |n| n.value || n.text }
       else
         self[:value]
       end
@@ -61,7 +61,7 @@ class Capybara::Driver::Selenium < Capybara::Driver::Base
     def visible?
       native.displayed? and native.displayed? != "false"
     end
-    
+
     def find(locator)
       native.find_elements(:xpath, locator).map { |n| self.class.new(driver, n) }
     end
@@ -79,20 +79,21 @@ class Capybara::Driver::Selenium < Capybara::Driver::Base
 
   end
 
-  attr_reader :app, :rack_server
+  attr_reader :app, :rack_server, :options
 
-  def self.driver
-    unless @driver
-      @driver = Selenium::WebDriver.for :firefox
+  def browser
+    unless @browser
+      @browser = Selenium::WebDriver.for(options.delete(:browser) || :firefox, options)
       at_exit do
-        @driver.quit
+        @browser.quit
       end
     end
-    @driver
+    @browser
   end
 
-  def initialize(app)
+  def initialize(app, options={})
     @app = app
+    @options = options
     @rack_server = Capybara::Server.new(@app)
     @rack_server.boot if Capybara.run_server
   end
@@ -127,12 +128,9 @@ class Capybara::Driver::Selenium < Capybara::Driver::Base
     browser.execute_script "return #{script}"
   end
 
-  def browser
-    self.class.driver
-  end
-
-  def cleanup!
-    browser.manage.delete_all_cookies
+  def reset!
+    # Use instance variable directly so we avoid starting the browser just to reset the session
+    @browser.manage.delete_all_cookies if @browser
   end
 
   def within_frame(frame_id)
@@ -140,6 +138,10 @@ class Capybara::Driver::Selenium < Capybara::Driver::Base
     browser.switch_to.frame(frame_id)
     yield
     browser.switch_to.window old_window
+  end
+
+  def within_window(handle, &blk)
+    browser.switch_to.window(handle, &blk)
   end
 
 private

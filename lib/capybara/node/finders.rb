@@ -36,7 +36,7 @@ module Capybara
       # @deprecated {#find} now behaves like locate used to. Use {#find} instead.
       #
       def locate(*args)
-        warn "DEPRECATED: Please use #find instead of #locate"
+        Capybara.deprecate("locate", "find")
         find(*args)
       end
 
@@ -122,8 +122,7 @@ module Capybara
       def all(*args)
         options = if args.last.is_a?(Hash) then args.pop else {} end
 
-        selector = Capybara::Selector.normalize(*args)
-        results = XPath::HTML.wrap(selector).map do |path|
+        results = Capybara::Selector.normalize(*args).map do |path|
           base.find(path)
         end.flatten
 

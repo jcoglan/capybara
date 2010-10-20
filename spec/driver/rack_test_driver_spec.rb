@@ -1,7 +1,5 @@
 # encoding: utf-8
-require File.expand_path('../spec_helper', File.dirname(__FILE__))
-
-
+require 'spec_helper'
 require 'stringio'
 
 def capture(*streams)
@@ -18,7 +16,7 @@ end
 
 describe Capybara::Driver::RackTest do
   before do
-    @driver = Capybara::Driver::RackTest.new(TestApp)
+    @driver = TestSessions::RackTest.driver
   end
 
   it "should throw an error when no rack app is given" do

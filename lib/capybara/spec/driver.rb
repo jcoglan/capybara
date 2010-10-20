@@ -154,8 +154,49 @@ shared_examples_for "driver with frame support" do
   end
 end
 
+shared_examples_for "driver with support for window switching" do
+  describe '#within_window' do
+    before(:each) do
+      @driver.visit('/within_popups')
+    end
+    after(:each) do
+      @driver.within_window("firstPopup") do
+        @driver.evaluate_script('window.close()')
+      end
+      @driver.within_window("secondPopup") do
+        @driver.evaluate_script('window.close()')
+      end
+    end
+
+    it "should find the div in firstPopup" do
+      @driver.within_window("firstPopup") do
+        @driver.find("//*[@id='divInPopupOne']")[0].text.should eql 'This is the text of divInPopupOne'
+      end
+    end
+    it "should find the div in secondPopup" do
+      @driver.within_window("secondPopup") do
+        @driver.find("//*[@id='divInPopupTwo']")[0].text.should eql 'This is the text of divInPopupTwo'
+      end
+    end
+    it "should find the divs in both popups" do
+      @driver.within_window("secondPopup") do
+        @driver.find("//*[@id='divInPopupTwo']")[0].text.should eql 'This is the text of divInPopupTwo'
+      end
+      @driver.within_window("firstPopup") do
+        @driver.find("//*[@id='divInPopupOne']")[0].text.should eql 'This is the text of divInPopupOne'
+      end
+    end
+    it "should find the div in the main window after finding a div in a popup" do
+      @driver.within_window("secondPopup") do
+        @driver.find("//*[@id='divInPopupTwo']")[0].text.should eql 'This is the text of divInPopupTwo'
+      end
+      @driver.find("//*[@id='divInMainWindow']")[0].text.should eql 'This is the text for divInMainWindow'
+    end
+  end
+end
+
 shared_examples_for "driver with cookies support" do
-  describe "#cleanup" do
+  describe "#reset!" do
     it "should set and clean cookies" do
       @driver.visit('/get_cookie')
       @driver.body.should_not include('test_cookie')
@@ -166,7 +207,7 @@ shared_examples_for "driver with cookies support" do
       @driver.visit('/get_cookie')
       @driver.body.should include('test_cookie')
 
-      @driver.cleanup!
+      @driver.reset!
       @driver.visit('/get_cookie')
       @driver.body.should_not include('test_cookie')
     end

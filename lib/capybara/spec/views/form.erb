@@ -155,7 +155,26 @@
       <option selected="selected">Briefs</option>
       <option selected="selected">Commando</option>
       <option selected="selected">Frenchman's Pantalons</option>
+      <option selected="selected" value="thermal">Long Johns</option>
     </select>
+  </p>
+ 
+  <p>
+    <span>First address<span>
+    <label for='address1_street'>Street</label>
+    <input type="text" name="form[addresses][][street]" value="" id="address1_street">
+  
+    <label for='address1_city'>City</label>
+    <input type="text" name="form[addresses][][city]" value="" id="address1_city"> 
+  </p>  
+
+  <p>  
+    <span>Second address<span>
+    <label for='address2_street'>Street</label>
+    <input type="text" name="form[addresses][][street]" value="" id="address2_street">
+  
+    <label for='address2_city'>City</label>
+    <input type="text" name="form[addresses][][city]" value="" id="address2_city"> 
   </p>
 
   <div style="display:none;">
@@ -216,6 +235,7 @@
     <input type="image" name="form[okay]" id="okay556" value="okay" alt="oh hai thar"/>
     <button type="submit" id="click_me_123" value="click_me">Click me!</button>
     <button type="submit" name="form[no_value]">No Value!</button>
+    <button id="no_type">No Type!</button>
   </p>
 </form>
 

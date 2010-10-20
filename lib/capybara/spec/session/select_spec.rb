@@ -3,7 +3,7 @@ shared_examples_for "select" do
     before do
       @session.visit('/form')
     end
-    
+
     it "should return value of the first option" do
       @session.find_field('Title').value.should == 'Mrs'
     end
@@ -11,6 +11,10 @@ shared_examples_for "select" do
     it "should return value of the selected option" do
       @session.select("Miss", :from => 'Title')
       @session.find_field('Title').value.should == 'Miss'
+    end
+
+    it "should return the value attribute rather than content if present" do
+      @session.find_field('Locale').value.should == 'en'
     end
 
     it "should select an option from a select box by id" do
@@ -23,6 +27,12 @@ shared_examples_for "select" do
       @session.select("Finish", :from => 'Locale')
       @session.click_button('awesome')
       extract_results(@session)['locale'].should == 'fi'
+    end
+
+    it "should select an option without giving a select box" do
+      @session.select("Mr")
+      @session.click_button('awesome')
+      extract_results(@session)['title'].should == 'Mr'
     end
 
     it "should favour exact matches to option labels" do
@@ -85,6 +95,10 @@ shared_examples_for "select" do
         @session.select("Javascript", :from => 'Language')
         @session.click_button('awesome')
         extract_results(@session)['languages'].should include('Ruby', 'Javascript')
+      end
+      
+      it "should return value attribute rather than content if present" do
+        @session.find_field('Underwear').value.should include('thermal')
       end
     end
   end

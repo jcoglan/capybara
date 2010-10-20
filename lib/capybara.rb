@@ -14,6 +14,7 @@ module Capybara
 
   class << self
     attr_accessor :asset_root, :app_host, :run_server, :default_host
+    attr_accessor :server_port
     attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements
     attr_accessor :save_and_open_page_path
 
@@ -45,6 +46,31 @@ module Capybara
     def configure
       yield self
     end
+
+    ##
+    #
+    # Register a new driver for Capybara.
+    #
+    #     Capybara.register_driver :rack_test do |app|
+    #       Capybara::Driver::RackTest.new(app)
+    #     end
+    #
+    # @param [Symbol] name                    The name of the new driver
+    # @yield [app]                            This block takes a rack app and returns a Capybara driver
+    # @yieldparam [<Rack>] app                The rack application that this driver runs agains. May be nil.
+    # @yieldreturn [Capybara::Driver::Base]   A Capybara driver instance
+    #
+    def register_driver(name, &block)
+      drivers[name] = block
+    end
+
+    def drivers
+      @drivers ||= {}
+    end
+
+    def deprecate(method, alternate_method)
+      warn "DEPRECATED: ##{method} is deprecated, please use ##{alternate_method} instead"
+    end
   end
 
   autoload :Server,     'capybara/server'
@@ -72,3 +98,18 @@ Capybara.configure do |config|
   config.ignore_hidden_elements = false
 end
 
+Capybara.register_driver :rack_test do |app|
+  Capybara::Driver::RackTest.new(app)
+end
+
+Capybara.register_driver :celerity do |app|
+  Capybara::Driver::Culerity.new(app)
+end
+
+Capybara.register_driver :culerity do |app|
+  Capybara::Driver::Culerity.new(app)
+end
+
+Capybara.register_driver :selenium do |app|
+  Capybara::Driver::Selenium.new(app)
+end

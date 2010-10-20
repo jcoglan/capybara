@@ -1,4 +1,5 @@
 require 'rack/test'
+require 'rack/utils'
 require 'mime/types'
 require 'nokogiri'
 require 'cgi'
@@ -14,10 +15,10 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
       case
       when 'select' == tag_name && 'value' == attr_name
         if native['multiple'] == 'multiple'
-          native.xpath(".//option[@selected='selected']").map { |option| option.content  }
+          native.xpath(".//option[@selected='selected']").map { |option| option[:value] || option.content  }
         else
           option = native.xpath(".//option[@selected='selected']").first || native.xpath(".//option").first
-          option.content if option
+          option[:value] || option.content if option
         end
       when 'input' == tag_name && 'checkbox' == type && 'checked' == attr_name
         native[attr_name] == 'checked' ? true : false
@@ -70,7 +71,8 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
       if tag_name == 'a'
         method = self["data-method"] || :get
         driver.process(method, self[:href].to_s)
-      elsif (tag_name == 'input' or tag_name == 'button') and %w(submit image).include?(type)
+      elsif (tag_name == 'input' and %w(submit image).include?(type)) or
+          ((tag_name == 'button') and type.nil? or type == "submit")
         Form.new(driver, form).submit(self)
       end
     end
@@ -162,16 +164,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     end
 
     def merge_param!(params, key, value)
-      collection = key.sub!(/\[\]$/, '')
-      if collection
-        if params[key]
-          params[key] << value
-        else
-          params[key] = [value]
-        end
-      else
-        params[key] = value
-      end
+      Rack::Utils.normalize_params(params, key, value)
     end
   end
 
@@ -241,7 +234,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
   end
   alias_method :source, :body
 
-  def cleanup!
+  def reset!
     clear_cookies
   end
 

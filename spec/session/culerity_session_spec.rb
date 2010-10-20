@@ -1,9 +1,9 @@
-require File.expand_path('../spec_helper', File.dirname(__FILE__))
+require 'spec_helper'
 
-describe Capybara::Session do
+describe Capybara::Session, :jruby => :installed do
   context 'with culerity driver' do
     before(:all) do
-      @session = Capybara::Session.new(:culerity, TestApp)
+      @session = TestSessions::Culerity
     end
 
     describe '#driver' do

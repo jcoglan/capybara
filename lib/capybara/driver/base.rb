@@ -39,6 +39,10 @@ class Capybara::Driver::Base
     raise Capybara::NotSupportedByDriverError
   end
 
+  def within_window(handle)
+    raise Capybara::NotSupportedByDriverError
+  end
+
   def wait?
     false
   end
@@ -46,7 +50,12 @@ class Capybara::Driver::Base
   def wait_until(*args)
   end
 
+  def reset!
+  end
+
   def cleanup!
+    Capybara.deprecate("cleanup!", "reset!")
+    reset!
   end
 
   def has_shortcircuit_timeout?

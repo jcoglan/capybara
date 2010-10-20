@@ -1,16 +1,13 @@
-require File.expand_path('../spec_helper', File.dirname(__FILE__))
+require 'spec_helper'
 
 describe Capybara::Driver::Selenium do
-  before(:all) do
-    Capybara.app_host = "http://capybara-testapp.heroku.com"
-  end
-  
-  after(:all) do
-    Capybara.app_host = nil
+  before do
+    #Capybara.app_host = "http://capybara-testapp.heroku.com"
+    @driver = TestSessions::Selenium.driver
   end
 
-  before do
-    @driver = Capybara::Driver::Selenium.new(TestApp)
+  after do
+    Capybara.app_host = nil
   end
 
   it_should_behave_like "driver"

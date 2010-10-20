@@ -8,6 +8,10 @@ shared_examples_for "session" do
     YAML.load Nokogiri::HTML(session.body).xpath("//pre[@id='results']").first.text
   end
 
+  after do
+    @session.reset!
+  end
+
   describe '#app' do
     it "should remember the application" do
       @session.app.should == TestApp
@@ -22,14 +26,14 @@ shared_examples_for "session" do
       @session.body.should include('Another World')
     end
   end
-  
+
   describe '#body' do
     it "should return the unmodified page body" do
       @session.visit('/')
       @session.body.should include('Hello world!')
     end
   end
-  
+
   describe '#source' do
     it "should return the unmodified page source" do
       @session.visit('/')
@@ -52,6 +56,8 @@ shared_examples_for "session" do
   it_should_behave_like "find"
   it_should_behave_like "has_content"
   it_should_behave_like "has_css"
+  it_should_behave_like "has_css"
+  it_should_behave_like "has_selector"
   it_should_behave_like "has_xpath"
   it_should_behave_like "has_link"
   it_should_behave_like "has_button"
@@ -63,6 +69,25 @@ shared_examples_for "session" do
   it_should_behave_like "unselect"
   it_should_behave_like "within"
   it_should_behave_like "current_url"
+
+  it "should encode complex field names, like array[][value]" do
+    @session.visit('/form')
+    @session.fill_in('address1_city', :with =>'Paris')
+    @session.fill_in('address1_street', :with =>'CDG')
+    @session.fill_in('address2_city', :with => 'Mikolaiv')
+    @session.fill_in('address2_street', :with => 'PGS')
+    @session.click_button "awesome"
+
+    addresses=extract_results(@session)["addresses"]
+    addresses.should have(2).addresses
+
+    addresses[0]["street"].should == 'CDG'
+    addresses[0]["city"].should   == 'Paris'
+
+    addresses[1]["street"].should == 'PGS'
+    addresses[1]["city"].should   == 'Mikolaiv'
+  end
+
 end
 
 

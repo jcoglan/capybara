@@ -1,8 +1,9 @@
-require File.expand_path('../spec_helper', File.dirname(__FILE__))
+require 'spec_helper'
 
-describe Capybara::Driver::Culerity do
+describe Capybara::Driver::Culerity, :jruby => :installed do
+
   before(:all) do
-    @driver = Capybara::Driver::Culerity.new(TestApp)
+    @driver = TestSessions::Culerity.driver
   end
 
   it_should_behave_like "driver"

@@ -30,9 +30,9 @@ module Capybara
       :all, :attach_file, :body, :check, :choose, :click_link_or_button, :click_button, :click_link, :current_url, :drag, :evaluate_script,
       :field_labeled, :fill_in, :find, :find_button, :find_by_id, :find_field, :find_link, :has_content?, :has_css?,
       :has_no_content?, :has_no_css?, :has_no_xpath?, :has_xpath?, :locate, :save_and_open_page, :select, :source, :uncheck,
-      :visit, :wait_until, :within, :within_fieldset, :within_table, :within_frame, :has_link?, :has_no_link?, :has_button?,
+      :visit, :wait_until, :within, :within_fieldset, :within_table, :within_frame, :within_window, :has_link?, :has_no_link?, :has_button?,
       :has_no_button?, :has_field?, :has_no_field?, :has_checked_field?, :has_unchecked_field?, :has_no_table?, :has_table?,
-      :unselect, :has_select?, :has_no_select?, :current_path, :scope_to, :click
+      :unselect, :has_select?, :has_no_select?, :current_path, :click, :has_selector?, :has_no_selector?
     ]
 
     attr_reader :mode, :app
@@ -43,12 +43,12 @@ module Capybara
     end
 
     def driver
-      @driver ||= begin                    
-        string = mode.to_s
-        string.gsub!(%r{(^.)|(_.)}) { |m| m[m.length-1,1].upcase }
-        Capybara::Driver.const_get(string.to_sym).new(app)
-      rescue NameError
-        raise Capybara::DriverNotFoundError, "no driver called #{mode} was found"
+      @driver ||= begin
+        unless Capybara.drivers.has_key?(mode)
+          other_drivers = Capybara.drivers.keys.map { |key| key.inspect }
+          raise Capybara::DriverNotFoundError, "no driver called #{mode.inspect} was found, available drivers: #{other_drivers.join(', ')}"
+        end
+        Capybara.drivers[mode].call(app)
       end
     end
 
@@ -56,9 +56,10 @@ module Capybara
     #
     # Reset the session, removing all cookies.
     #
-    def cleanup!
-      driver.cleanup!
+    def reset!
+      driver.reset!
     end
+    alias_method :cleanup!, :reset!
 
     ##
     #
@@ -202,6 +203,17 @@ module Capybara
 
     ##
     #
+    # Execute the given block within the given window. Only works on
+    # some drivers (e.g. Selenium)
+    #
+    # @param [String] locator of the window
+    #
+    def within_window(handle, &blk)
+      driver.within_window(handle, &blk)
+    end
+
+    ##
+    #
     # Retry executing the block until a truthy result is returned or the timeout time is exceeded
     #
     # @param [Integer] timeout   The amount of seconds to retry executing the given block
@@ -240,7 +252,7 @@ module Capybara
     # @deprecated click is deprecated, please use {Capybara::Node::Actions#click_link_or_button} instead
     #
     def click(locator)
-      warn "DEPRECATED: click is deprecated, use click_link_or_button instead"
+      Capybara.deprecate("click", "click_link_or_button")
       current_node.click_link_or_button(locator)
     end
 
