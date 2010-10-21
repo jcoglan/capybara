@@ -161,10 +161,10 @@ shared_examples_for "driver with support for window switching" do
     end
     after(:each) do
       @driver.within_window("firstPopup") do
-        @driver.evaluate_script('window.close()')
+        @driver.execute_script('window.close()')
       end
       @driver.within_window("secondPopup") do
-        @driver.evaluate_script('window.close()')
+        @driver.execute_script('window.close()')
       end
     end
 
