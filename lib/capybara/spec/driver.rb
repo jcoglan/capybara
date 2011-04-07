@@ -26,6 +26,20 @@ shared_examples_for 'driver' do
       @driver.visit('/with_simple_html')
       @driver.body.should include('Bar')
     end
+
+    if "".respond_to?(:encoding)
+      context "encoding of response between ascii and utf8" do
+        it "should be valid with html entities" do
+          @driver.visit('/with_html_entities')
+          lambda { @driver.body.encode!("UTF-8") }.should_not raise_error
+        end
+
+        it "should be valid without html entities" do
+          @driver.visit('/with_html')
+          lambda { @driver.body.encode!("UTF-8") }.should_not raise_error
+        end
+      end
+    end
   end
 
   describe '#find' do
@@ -42,6 +56,7 @@ shared_examples_for 'driver' do
       it "should extract node attributes" do
         @driver.find('//a')[0][:class].should == 'simple'
         @driver.find('//a')[1][:id].should == 'foo'
+        @driver.find('//input')[0][:type].should == 'text'
       end
 
       it "should extract boolean node attributes" do
@@ -70,6 +85,25 @@ shared_examples_for 'driver' do
         @driver.find('//div[@id="hidden"]')[0].should_not be_visible
         @driver.find('//div[@id="hidden_via_ancestor"]')[0].should_not be_visible
       end
+
+      it "should extract node checked state" do
+        @driver.visit('/form')
+        @driver.find('//input[@id="gender_female"]')[0].should be_checked
+        @driver.find('//input[@id="gender_male"]')[0].should_not be_checked
+        @driver.find('//h1')[0].should_not be_checked
+      end
+
+      it "should extract node selected state" do
+        @driver.visit('/form')
+        @driver.find('//option[@value="en"]')[0].should be_selected
+        @driver.find('//option[@value="sv"]')[0].should_not be_selected
+        @driver.find('//h1')[0].should_not be_selected
+      end
+
+      it "should return document text on /html selector" do
+        @driver.visit('/with_simple_html')
+        @driver.find('/html')[0].text.should include('Bar')
+      end
     end
   end
 end
@@ -85,7 +119,6 @@ shared_examples_for "driver with javascript support" do
 
   describe '#drag_to' do
     it "should drag and drop an object" do
-      pending "drag/drop is currently broken under celerity/culerity" if @driver.is_a?(Capybara::Driver::Celerity)
       draggable = @driver.find('//div[@id="drag"]').first
       droppable = @driver.find('//div[@id="drop"]').first
       draggable.drag_to(droppable)
@@ -98,12 +131,48 @@ shared_examples_for "driver with javascript support" do
       @driver.evaluate_script('1+1').should == 2
     end
   end
+
+end
+
+shared_examples_for "driver with resynchronization support" do
+  before { @driver.visit('/with_js') }
+  describe "#find" do
+    context "with synchronization turned on" do
+      it "should wait for all ajax requests to finish" do
+        @driver.find('//input[@id="fire_ajax_request"]').first.click
+        @driver.find('//p[@id="ajax_request_done"]').should_not be_empty
+      end
+    end
+
+    context "with resynchronization turned off" do
+      before { @driver.options[:resynchronize] = false }
+
+      it "should not wait for ajax requests to finish" do
+        @driver.find('//input[@id="fire_ajax_request"]').first.click
+        @driver.find('//p[@id="ajax_request_done"]').should be_empty
+      end
+
+      after { @driver.options[:resynchronize] = true }
+    end
+
+    context "with short synchronization timeout" do
+      before { @driver.options[:resynchronization_timeout] = 0.1 }
+
+      it "should raise an error" do
+        expect do
+          @driver.find('//input[@id="fire_ajax_request"]').first.click
+        end.to raise_error(Capybara::TimeoutError, "failed to resynchronize, ajax request timed out")
+      end
+
+      after { @driver.options[:resynchronization_timeout] = 10 }
+    end
+  end
 end
 
 shared_examples_for "driver with header support" do
   it "should make headers available through response_headers" do
     @driver.visit('/with_simple_html')
-    @driver.response_headers['Content-Type'].should == 'text/html'
+    @driver.response_headers['Content-Type'].should =~ /text\/html/
   end
 end
 

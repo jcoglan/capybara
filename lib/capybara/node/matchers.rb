@@ -1,5 +1,5 @@
 module Capybara
-  class Node
+  module Node
     module Matchers
 
       ##
@@ -37,8 +37,17 @@ module Capybara
         wait_conditionally_until do
           results = all(*args)
 
-          if options[:count]
-            results.size == options[:count]
+          case
+          when results.empty?
+            false
+          when options[:between]
+            options[:between] === results.size
+          when options[:count]
+            options[:count].to_i == results.size
+          when options[:maximum]
+            options[:maximum].to_i >= results.size
+          when options[:minimum]
+            options[:minimum].to_i <= results.size
           else
             results.size > 0
           end
@@ -60,8 +69,17 @@ module Capybara
         wait_conditionally_until do
           results = all(*args)
 
-          if options[:count]
-            results.size != options[:count]
+          case
+          when results.empty?
+            true
+          when options[:between]
+            not(options[:between] === results.size)
+          when options[:count]
+            not(options[:count].to_i == results.size)
+          when options[:maximum]
+            not(options[:maximum].to_i >= results.size)
+          when options[:minimum]
+            not(options[:minimum].to_i <= results.size)
           else
             results.empty?
           end
@@ -183,11 +201,13 @@ module Capybara
       # Checks if the page or current node has a link with the given
       # text or id.
       #
-      # @param [String] locator      The text or id of a link to check for
-      # @return [Boolean]            Whether it exists
+      # @param [String] locator           The text or id of a link to check for
+      # @param options
+      # @option options [String] :href    The value the href attribute must be
+      # @return [Boolean]                 Whether it exists
       #
-      def has_link?(locator)
-        has_xpath?(XPath::HTML.link(locator))
+      def has_link?(locator, options={})
+        has_xpath?(XPath::HTML.link(locator, options))
       end
 
       ##
@@ -195,11 +215,11 @@ module Capybara
       # Checks if the page or current node has no link with the given
       # text or id.
       #
-      # @param [String] locator      The text or id of a link to check for
+      # @param (see Capybara::Node::Finders#has_link?)
       # @return [Boolean]            Whether it doesn't exist
       #
-      def has_no_link?(locator)
-        has_no_xpath?(XPath::HTML.link(locator))
+      def has_no_link?(locator, options={})
+        has_no_xpath?(XPath::HTML.link(locator, options))
       end
 
       ##
@@ -242,7 +262,8 @@ module Capybara
       # @return [Boolean]                 Whether it exists
       #
       def has_field?(locator, options={})
-        has_xpath?(XPath::HTML.field(locator, options))
+        options, with = split_options(options, :with)
+        has_xpath?(XPath::HTML.field(locator, options), with)
       end
 
       ##
@@ -255,7 +276,8 @@ module Capybara
       # @return [Boolean]                 Whether it doesn't exist
       #
       def has_no_field?(locator, options={})
-        has_no_xpath?(XPath::HTML.field(locator, options))
+        options, with = split_options(options, :with)
+        has_no_xpath?(XPath::HTML.field(locator, options), with)
       end
 
       ##
@@ -268,7 +290,20 @@ module Capybara
       # @return [Boolean]                 Whether it exists
       #
       def has_checked_field?(locator)
-        has_xpath?(XPath::HTML.field(locator, :checked => true))
+        has_xpath?(XPath::HTML.field(locator), :checked => true)
+      end
+
+      ##
+      #
+      # Checks if the page or current node has no radio button or
+      # checkbox with the given label, value or id, that is currently
+      # checked.
+      #
+      # @param [String] locator           The label, name or id of a checked field
+      # @return [Boolean]                 Whether it doesn't exists
+      #
+      def has_no_checked_field?(locator)
+        has_no_xpath?(XPath::HTML.field(locator), :checked => true)
       end
 
       ##
@@ -281,7 +316,20 @@ module Capybara
       # @return [Boolean]                 Whether it exists
       #
       def has_unchecked_field?(locator)
-        has_xpath?(XPath::HTML.field(locator, :unchecked => true))
+        has_xpath?(XPath::HTML.field(locator), :unchecked => true)
+      end
+
+      ##
+      #
+      # Checks if the page or current node has no radio button or
+      # checkbox with the given label, value or id, that is currently
+      # unchecked.
+      #
+      # @param [String] locator           The label, name or id of an unchecked field
+      # @return [Boolean]                 Whether it doesn't exists
+      #
+      def has_no_unchecked_field?(locator)
+        has_no_xpath?(XPath::HTML.field(locator), :unchecked => true)
       end
 
       ##
@@ -308,7 +356,8 @@ module Capybara
       # @return [Boolean]                            Whether it exists
       #
       def has_select?(locator, options={})
-        has_xpath?(XPath::HTML.select(locator, options))
+        options, selected = split_options(options, :selected)
+        has_xpath?(XPath::HTML.select(locator, options), selected)
       end
 
       ##
@@ -320,7 +369,8 @@ module Capybara
       # @return [Boolean]     Whether it doesn't exist
       #
       def has_no_select?(locator, options={})
-        has_no_xpath?(XPath::HTML.select(locator, options))
+        options, selected = split_options(options, :selected)
+        has_no_xpath?(XPath::HTML.select(locator, options), selected)
       end
 
       ##
@@ -354,6 +404,13 @@ module Capybara
       #
       def has_no_table?(locator, options={})
         has_no_xpath?(XPath::HTML.table(locator, options))
+      end
+
+      protected
+
+      def split_options(options, key)
+        options = options.dup
+        [options, if options.has_key?(key) then {key => options.delete(key)} else {} end]
       end
     end
   end

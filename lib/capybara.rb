@@ -1,7 +1,6 @@
 require 'timeout'
 require 'nokogiri'
 require 'xpath'
-
 module Capybara
   class CapybaraError < StandardError; end
   class DriverNotFoundError < CapybaraError; end
@@ -14,8 +13,8 @@ module Capybara
 
   class << self
     attr_accessor :asset_root, :app_host, :run_server, :default_host
-    attr_accessor :server_port
-    attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements
+    attr_accessor :server_port, :server_boot_timeout
+    attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements, :prefer_visible_elements
     attr_accessor :save_and_open_page_path
 
     ##
@@ -35,6 +34,7 @@ module Capybara
     # [default_selector = :css/:xpath]    Methods which take a selector use the given type by default (Default: CSS)
     # [default_wait_time = Integer]       The number of seconds to wait for asynchronous processes to finish (Default: 2)
     # [ignore_hidden_elements = Boolean]  Whether to ignore hidden elements on the page (Default: false)
+    # [prefer_visible_elements = Boolean] Whether to prefer visible elements over hidden elements (Default: true)
     #
     # === DSL Options
     #
@@ -74,7 +74,7 @@ module Capybara
     #       xpath { |num| ".//tbody/tr[#{num}]" }
     #     end
     #
-    # This makes it possible to use this selector in a cariety of ways:
+    # This makes it possible to use this selector in a variety of ways:
     #
     #     find(:row, 3)
     #     page.find('table#myTable').find(:row, 3).text
@@ -108,6 +108,74 @@ module Capybara
       @drivers ||= {}
     end
 
+    ##
+    #
+    # Register a proc that Capybara will call to run the Rack application.
+    #
+    #     Capybara.server do |app, port|
+    #       require 'rack/handler/mongrel'
+    #       Rack::Handler::Mongrel.run(app, :Port => port)
+    #     end
+    #
+    # By default, Capybara will try to run thin, falling back to webrick.
+    #
+    # @yield [app, port]                      This block recieves a rack app and port and should run a Rack handler
+    #
+    def server(&block)
+      if block_given?
+        @server = block
+      else
+        @server
+      end
+    end
+
+    ##
+    #
+    # Wraps the given string, which should contain an HTML document or fragment
+    # in a {Capybara::Node::Simple} which exposes all {Capybara::Node::Matchers} and
+    # {Capybara::Node::Finders}. This allows you to query any string containing
+    # HTML in the exact same way you would query the current document in a Capybara
+    # session. For example:
+    #
+    #     node = Capybara.string <<-HTML
+    #       <ul>
+    #         <li id="home">Home</li>
+    #         <li id="projects">Projects</li>
+    #       </ul>
+    #     HTML
+    #
+    #     node.find('#projects').text # => 'Projects'
+    #     node.has_selector?('li#home', :text => 'Home')
+    #     node.has_selector?(:projects)
+    #     node.find('ul').find('li').text # => 'Home'
+    #
+    # @param [String] html              An html fragment or document
+    # @return [Capybara::Node::Simple]   A node which has Capybara's finders and matchers
+    #
+    def string(html)
+      Capybara::Node::Simple.new(html)
+    end
+
+    ##
+    #
+    # Runs Capybara's default server for the given application and port
+    # under most circumstances you should not have to call this method
+    # manually.
+    #
+    # @param [Rack Application] app    The rack application to run
+    # @param [Fixnum] port              The port to run the application on
+    #
+    def run_default_server(app, port)
+      begin
+        require 'rack/handler/thin'
+        Thin::Logging.silent = true
+        Rack::Handler::Thin.run(app, :Port => port)
+      rescue LoadError
+        require 'rack/handler/webrick'
+        Rack::Handler::WEBrick.run(app, :Port => port, :AccessLog => [], :Logger => WEBrick::Log::new(nil, 0))
+      end
+    end
+
     def deprecate(method, alternate_method)
       warn "DEPRECATED: ##{method} is deprecated, please use ##{alternate_method} instead"
     end
@@ -115,39 +183,40 @@ module Capybara
 
   autoload :Server,     'capybara/server'
   autoload :Session,    'capybara/session'
-  autoload :Node,       'capybara/node'
-  autoload :Document,   'capybara/node'
-  autoload :Element,    'capybara/node'
   autoload :Selector,   'capybara/selector'
   autoload :VERSION,    'capybara/version'
+
+  module Node
+    autoload :Base,       'capybara/node/base'
+    autoload :Simple,     'capybara/node/simple'
+    autoload :Element,    'capybara/node/element'
+    autoload :Document,   'capybara/node/document'
+    autoload :Finders,    'capybara/node/finders'
+    autoload :Matchers,   'capybara/node/matchers'
+    autoload :Actions,    'capybara/node/actions'
+  end
 
   module Driver
     autoload :Base,     'capybara/driver/base'
     autoload :Node,     'capybara/driver/node'
     autoload :RackTest, 'capybara/driver/rack_test_driver'
-    autoload :Celerity, 'capybara/driver/celerity_driver'
-    autoload :Culerity, 'capybara/driver/culerity_driver'
     autoload :Selenium, 'capybara/driver/selenium_driver'
   end
 end
 
 Capybara.configure do |config|
   config.run_server = true
+  config.server {|app, port| Capybara.run_default_server(app, port)}
+  config.server_boot_timeout = 10
   config.default_selector = :css
   config.default_wait_time = 2
   config.ignore_hidden_elements = false
+  config.prefer_visible_elements = true
+  config.default_host = "http://www.example.com"
 end
 
 Capybara.register_driver :rack_test do |app|
   Capybara::Driver::RackTest.new(app)
-end
-
-Capybara.register_driver :celerity do |app|
-  Capybara::Driver::Celerity.new(app)
-end
-
-Capybara.register_driver :culerity do |app|
-  Capybara::Driver::Culerity.new(app)
 end
 
 Capybara.register_driver :selenium do |app|

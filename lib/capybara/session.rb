@@ -26,14 +26,24 @@ module Capybara
   # When using capybara/dsl, the Session is initialized automatically for you.
   #
   class Session
-    DSL_METHODS = [
-      :all, :attach_file, :body, :check, :choose, :click_link_or_button, :click_button, :click_link, :current_url, :drag, :evaluate_script,
-      :field_labeled, :fill_in, :find, :find_button, :find_by_id, :find_field, :find_link, :has_content?, :has_css?,
-      :has_no_content?, :has_no_css?, :has_no_xpath?, :has_xpath?, :locate, :save_and_open_page, :select, :source, :uncheck,
-      :visit, :wait_until, :within, :within_fieldset, :within_table, :within_frame, :within_window, :has_link?, :has_no_link?, :has_button?,
-      :has_no_button?, :has_field?, :has_no_field?, :has_checked_field?, :has_unchecked_field?, :has_no_table?, :has_table?,
-      :unselect, :has_select?, :has_no_select?, :current_path, :click, :has_selector?, :has_no_selector?
+    NODE_METHODS = [
+      :all, :first, :attach_file, :text, :check, :choose,
+      :click_link_or_button, :click_button, :click_link, :field_labeled,
+      :fill_in, :find, :find_button, :find_by_id, :find_field, :find_link,
+      :has_content?, :has_css?, :has_no_content?, :has_no_css?, :has_no_xpath?,
+      :has_xpath?, :select, :uncheck, :has_link?, :has_no_link?, :has_button?,
+      :has_no_button?, :has_field?, :has_no_field?, :has_checked_field?,
+      :has_unchecked_field?, :has_no_table?, :has_table?, :unselect,
+      :has_select?, :has_no_select?, :has_selector?, :has_no_selector?,
+      :click_on, :has_no_checked_field?, :has_no_unchecked_field?
     ]
+    SESSION_METHODS = [
+      :body, :html, :current_url, :current_host, :evaluate_script, :source,
+      :visit, :wait_until, :within, :within_fieldset, :within_table,
+      :within_frame, :within_window, :current_path, :save_page,
+      :save_and_open_page
+    ]
+    DSL_METHODS = NODE_METHODS + SESSION_METHODS
 
     attr_reader :mode, :app
 
@@ -83,11 +93,12 @@ module Capybara
 
     ##
     #
-    # @return [String] A snapshot of the HTML of the current document, as it looks right now
+    # @return [String] A snapshot of the HTML of the current document, as it looks right now (potentially modified by JavaScript).
     #
     def body
       driver.body
     end
+    alias_method :html, :body
 
     ##
     #
@@ -103,6 +114,15 @@ module Capybara
     #
     def current_path
       URI.parse(current_url).path
+    end
+
+    ##
+    #
+    # @return [String] Host of the current page
+    #
+    def current_host
+      uri = URI.parse(current_url)
+      "#{uri.scheme}://#{uri.host}"
     end
 
     ##
@@ -151,11 +171,11 @@ module Capybara
     #       fill_in('Street', :with => '12 Main Street')
     #     end
     #
-    # @param [:css, :xpath, String] kind    The type of selector or the selector if the second argument is blank
-    # @param [String] selector              The selector within which to execute the given block
+    # @param (see Capybara::Node::Finders#all)
+    # @raise  [Capybara::ElementNotFound]   If the scope can't be found before time expires
     #
-    def within(kind, selector=nil)
-      new_scope = find(kind, selector, :message => "scope '#{selector || kind}' not found on page")
+    def within(*args)
+      new_scope = find(*args)
       begin
         scopes.push(new_scope)
         yield
@@ -249,32 +269,28 @@ module Capybara
 
     ##
     #
-    # @deprecated click is deprecated, please use {Capybara::Node::Actions#click_link_or_button} instead
-    #
-    def click(locator)
-      Capybara.deprecate("click", "click_link_or_button")
-      current_node.click_link_or_button(locator)
-    end
-
-    ##
-    #
     # Save a snapshot of the page and open it in a browser for inspection
     #
+    def save_page
+      require 'capybara/util/save_and_open_page'
+      Capybara.save_page(body)
+    end
+
     def save_and_open_page
       require 'capybara/util/save_and_open_page'
       Capybara.save_and_open_page(body)
     end
 
     def document
-      Capybara::Document.new(self, driver)
+      Capybara::Node::Document.new(self, driver)
     end
 
-    def method_missing(*args)
-      current_node.send(*args)
-    end
-
-    def respond_to?(method)
-      super || current_node.respond_to?(method)
+    NODE_METHODS.each do |method|
+      class_eval <<-RUBY
+        def #{method}(*args, &block)
+          current_node.send(:#{method}, *args, &block)
+        end
+      RUBY
     end
 
   private

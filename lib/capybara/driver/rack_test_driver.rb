@@ -11,28 +11,11 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     end
 
     def [](name)
-      attr_name = name.to_s
-      case
-      when 'select' == tag_name && 'value' == attr_name
-        if native['multiple'] == 'multiple'
-          native.xpath(".//option[@selected='selected']").map { |option| option[:value] || option.content  }
-        else
-          option = native.xpath(".//option[@selected='selected']").first || native.xpath(".//option").first
-          option[:value] || option.content if option
-        end
-      when 'input' == tag_name && 'checkbox' == type && 'checked' == attr_name
-        native[attr_name] == 'checked' ? true : false
-      else
-        native[attr_name]
-      end
+      string_node[name]
     end
 
     def value
-      if tag_name == 'textarea'
-        native.content
-      else
-        self[:value]
-      end
+      string_node.value
     end
 
     def set(value)
@@ -47,6 +30,9 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
           native.remove_attribute('checked')
         end
       elsif tag_name == 'input'
+        if (type == 'text' || type == 'password') && self[:maxlength]
+          value = value[0...self[:maxlength].to_i]
+        end
         native['value'] = value.to_s
       elsif tag_name == "textarea"
         native.content = value.to_s
@@ -70,7 +56,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     def click
       if tag_name == 'a'
         method = self["data-method"] || :get
-        driver.process(method, self[:href].to_s)
+        driver.follow(method, self[:href].to_s)
       elsif (tag_name == 'input' and %w(submit image).include?(type)) or
           ((tag_name == 'button') and type.nil? or type == "submit")
         Form.new(driver, form).submit(self)
@@ -82,7 +68,15 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     end
 
     def visible?
-      native.xpath("./ancestor-or-self::*[contains(@style, 'display:none') or contains(@style, 'display: none')]").size == 0
+      string_node.visible?
+    end
+
+    def checked?
+      string_node.checked?
+    end
+
+    def selected?
+      string_node.selected?
     end
 
     def path
@@ -94,6 +88,10 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     end
 
   private
+
+    def string_node
+      @string_node ||= Capybara::Node::Simple.new(native)
+    end
 
     # a reference to the select node if this is an option node
     def select_node
@@ -110,39 +108,61 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
   end
 
   class Form < Node
+    # This only needs to inherit from Rack::Test::UploadedFile because Rack::Test checks for
+    # the class specifically when determing whether to consturct the request as multipart.
+    # That check should be based solely on the form element's 'enctype' attribute value,
+    # which should probably be provided to Rack::Test in its non-GET request methods.
+    class NilUploadedFile < Rack::Test::UploadedFile
+      def initialize
+        @empty_file = Tempfile.new("nil_uploaded_file")
+        @empty_file.close
+      end
+
+      def original_filename; ""; end
+      def content_type; "application/octet-stream"; end
+      def path; @empty_file.path; end
+    end
+
     def params(button)
       params = {}
 
-      native.xpath(".//input[not(@disabled) and (not(@type) or (@type!='radio' and @type!='checkbox' and @type!='submit' and @type!='image'))]").map do |input|
-        merge_param!(params, input['name'].to_s, input['value'].to_s)
-      end
-      native.xpath(".//textarea[not(@disabled)]").map do |textarea|
-        merge_param!(params, textarea['name'].to_s, textarea.text.to_s)
-      end
-      native.xpath(".//input[not(@disabled) and (@type='radio' or @type='checkbox')]").map do |input|
-        merge_param!(params, input['name'].to_s, input['value'].to_s) if input['checked']
-      end
-      native.xpath(".//select[not(@disabled)]").map do |select|
-        if select['multiple'] == 'multiple'
-          options = select.xpath(".//option[@selected]")
-          options.each do |option|
-            merge_param!(params, select['name'].to_s, (option['value'] || option.text).to_s)
-          end
-        else
-          option = select.xpath(".//option[@selected]").first
-          option ||= select.xpath('.//option').first
-          merge_param!(params, select['name'].to_s, (option['value'] || option.text).to_s) if option
-        end
-      end
-      native.xpath(".//input[not(@disabled) and @type='file']").map do |input|
-        unless input['value'].to_s.empty?
-          if multipart?
-            content_type = MIME::Types.type_for(input['value'].to_s).first.to_s
-            file = Rack::Test::UploadedFile.new(input['value'].to_s, content_type)
-            merge_param!(params, input['name'].to_s, file)
+      native.xpath("(.//input|.//select|.//textarea)[not(@disabled)]").map do |field|
+        case field.name
+        when 'input'
+          if %w(radio checkbox).include? field['type']
+            merge_param!(params, field['name'].to_s, field['value'].to_s) if field['checked']
+          elsif %w(submit image).include? field['type']
+            # TO DO identify the click button here (in document order, rather
+            # than leaving until the end of the params)
+          elsif field['type'] =='file'
+            if multipart?
+              file = \
+                if (value = field['value']).to_s.empty?
+                  NilUploadedFile.new
+                else
+                  content_type = MIME::Types.type_for(value).first.to_s
+                  Rack::Test::UploadedFile.new(value, content_type)
+                end
+              merge_param!(params, field['name'].to_s, file)
+            else
+              merge_param!(params, field['name'].to_s, File.basename(field['value'].to_s))
+            end
           else
-            merge_param!(params, input['name'].to_s, File.basename(input['value'].to_s))
+            merge_param!(params, field['name'].to_s, field['value'].to_s)
           end
+        when 'select'
+          if field['multiple'] == 'multiple'
+            options = field.xpath(".//option[@selected]")
+            options.each do |option|
+              merge_param!(params, field['name'].to_s, (option['value'] || option.text).to_s)
+            end
+          else
+            option = field.xpath(".//option[@selected]").first
+            option ||= field.xpath('.//option').first
+            merge_param!(params, field['name'].to_s, (option['value'] || option.text).to_s) if option
+          end
+        when 'textarea'
+          merge_param!(params, field['name'].to_s, field.text.to_s)
         end
       end
       merge_param!(params, button[:name], button[:value] || "") if button[:name]
@@ -170,6 +190,7 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
 
   include ::Rack::Test::Methods
   attr_reader :app
+  attr_accessor :current_host
 
   alias_method :response, :last_response
   alias_method :request, :last_request
@@ -180,14 +201,37 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
   end
 
   def visit(path, attributes = {})
+    reset_host!
     process(:get, path, attributes)
   end
 
+  def submit(method, path, attributes)
+    path = request_path if not path or path.empty?
+    process(method, path, attributes)
+  end
+
+  def follow(method, path, attributes = {})
+    return if path.gsub(/^#{request_path}/, '').start_with?('#')
+    process(method, path, attributes)
+  end
+
   def process(method, path, attributes = {})
-    return if path.gsub(/^#{request_path}/, '') =~ /^#/
-    path = request_path + path if path =~ /^\?/
+    new_uri = URI.parse(path)
+    current_uri = URI.parse(current_url)
+
+    path = request_path + path if path.start_with?('?')
+    path = current_host + path if path.start_with?('/')
+
+    if new_uri.host
+      @current_host = new_uri.scheme + '://' + new_uri.host
+    end
+
     send(method, to_binary(path), to_binary( attributes ), env)
     follow_redirects!
+  end
+
+  def reset_host!
+    @current_host = (Capybara.app_host || Capybara.default_host)
   end
 
   def current_url
@@ -216,12 +260,6 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
     end
   end
 
-  def submit(method, path, attributes)
-    path = request_path if not path or path.empty?
-    send(method, to_binary(path), to_binary(attributes), env)
-    follow_redirects!
-  end
-
   def find(selector)
     html.xpath(selector).map { |node| Node.new(self, node) }
   end
@@ -236,7 +274,8 @@ class Capybara::Driver::RackTest < Capybara::Driver::Base
   alias_method :source, :body
 
   def reset!
-    clear_cookies
+    reset_host!
+    clear_rack_mock_session
   end
 
   def get(*args, &block); reset_cache; super; end
@@ -258,8 +297,11 @@ private
     @html = nil
   end
 
-  def build_rack_mock_session # :nodoc:
-    Rack::MockSession.new(app, Capybara.default_host || "www.example.com")
+  # Rack::Test::Methods does not provide methods for manipulating the session
+  # list so these must be manipulated directly.
+  def clear_rack_mock_session
+    @_rack_test_sessions = nil
+    @_rack_mock_sessions = nil
   end
 
   def request_path

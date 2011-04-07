@@ -1,5 +1,5 @@
 module Capybara
-  class Node
+  module Node
     module Actions
 
       ##
@@ -13,6 +13,7 @@ module Capybara
         msg = "no link or button '#{locator}' found"
         find(:xpath, XPath::HTML.link_or_button(locator), :message => msg).click
       end
+      alias_method :click_on, :click_link_or_button
 
       ##
       #
@@ -101,9 +102,10 @@ module Capybara
       # box is a multiple select, +select+ can be called multiple times to select more than
       # one option. The select box can be found via its name, id or label text.
       #
-      #     page.uncheck('German')
+      #     page.select 'March', :from => 'Month'
       #
       # @param [String] locator           Which check box to uncheck
+      # @param [Hash{:from => String}]    The id, name or label of the select box
       #
       def select(value, options={})
         if options.has_key?(:from)
@@ -152,18 +154,6 @@ module Capybara
       def attach_file(locator, path)
         msg = "cannot attach file, no file field with id, name, or label '#{locator}' found"
         find(:xpath, XPath::HTML.file_field(locator), :message => msg).set(path)
-      end
-
-      ##
-      #
-      # Drag one element to another
-      #
-      # @deprecated    Use Capybara::Element#drag_to instead.
-      #
-      def drag(source_locator, target_locator)
-        source = find(:xpath, source_locator, :message => "drag source '#{source_locator}' not found on page")
-        target = find(:xpath, target_locator, :message => "drag target '#{target_locator}' not found on page")
-        source.drag_to(target)
       end
     end
   end

@@ -28,6 +28,12 @@ class TestApp < Sinatra::Base
     redirect '/landed'
   end
 
+  page :get, '/host' do
+    <<-HTML
+    Current host is <%= request.scheme %>://<%= request.host %>
+    HTML
+  end
+
   page :get, '/redirect/:times/times' do
     <<-HTML
     <%
@@ -73,6 +79,11 @@ class TestApp < Sinatra::Base
     redirect back
   end
 
+  page :get, '/slow_response' do
+    sleep 2
+    'Finally!'
+  end
+
   page :get, '/set_cookie' do
     <<-HTML
     <%
@@ -88,12 +99,32 @@ class TestApp < Sinatra::Base
     "<%= request.cookies['capybara'] %>"
   end
 
-  get '/:view' do |view|
-    erb view.to_sym
+  page :get, '/get_header' do
+    <<-HTML
+    <%= env['HTTP_FOO'] %>
+    HTML
+  end
+
+  page :get, '/:view' do |view|
+    <<-HTML
+    <%= erb params[:view].to_sym %>
+    HTML
   end
 
   page :post, '/form' do
     '<pre id="results"><%= params[:form].to_yaml %></pre>'
+  end
+
+  page :post, '/upload_empty' do
+    <<-HTML
+    <%=
+    if params[:form][:file].nil?
+      'Successfully ignored empty file field.'
+    else
+      'Something went wrong.'
+    end
+    %>
+    HTML
   end
 
   page :post, '/upload' do
@@ -110,8 +141,23 @@ class TestApp < Sinatra::Base
     %>
     HTML
   end
+
+  page :post, '/upload_multiple' do
+    <<-HTML
+    <%=
+    begin
+      buffer = []
+      buffer << "Content-type: #{params[:form][:multiple_documents][0][:type]}"
+      buffer << "File content: #{params[:form][:multiple_documents][0][:tempfile].read}"
+      buffer.join(' | ')
+    rescue
+      'No files uploaded'
+    end
+    %>
+    HTML
+  end
 end
 
 if __FILE__ == $0
-  Rack::Handler::Mongrel.run TestApp, :Port => 8070
+  Rack::Handler::WEBrick.run TestApp, :Port => 8070
 end

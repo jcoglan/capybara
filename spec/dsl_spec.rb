@@ -9,6 +9,7 @@ describe Capybara do
   end
 
   after do
+    Capybara.session_name = nil
     Capybara.default_driver = nil
     Capybara.use_default_driver
   end
@@ -56,6 +57,32 @@ describe Capybara do
     end
   end
 
+  describe '#using_driver' do
+    before do
+      Capybara.current_driver.should_not == :selenium
+    end
+
+    it 'should set the driver using Capybara.current_driver=' do
+      driver = nil
+      Capybara.using_driver(:selenium) { driver = Capybara.current_driver }
+      driver.should == :selenium
+    end
+
+    it 'should reset the driver using Capybara.use_default_driver, even if an exception occurs' do
+      begin
+        Capybara.using_driver(:selenium) { raise "ohnoes!" }
+      rescue Exception
+      end
+      Capybara.current_driver.should == Capybara.default_driver
+    end
+
+    it 'should yield the passed block' do
+      called = false
+      Capybara.using_driver(:selenium) { called = true }
+      called.should == true
+    end
+  end
+
   describe '#app' do
     it "should be changeable" do
       Capybara.app = "foobar"
@@ -97,6 +124,48 @@ describe Capybara do
       Capybara.current_session.object_id.should_not == object_id
       Capybara.current_session.app.should == Capybara.app
     end
+
+    it "should change when the session name changes" do
+      object_id = Capybara.current_session.object_id
+      Capybara.session_name = :administrator
+      Capybara.session_name.should == :administrator
+      Capybara.current_session.object_id.should_not == object_id
+      Capybara.session_name = :default
+      Capybara.session_name.should == :default
+      Capybara.current_session.object_id.should == object_id
+    end
+  end
+
+  describe "#using_session" do
+    it "should change the session name for the duration of the block" do
+      Capybara.session_name.should == :default
+      Capybara.using_session(:administrator) do
+        Capybara.session_name.should == :administrator
+      end
+      Capybara.session_name.should == :default
+    end
+
+    it "should reset the session to the default, even if an exception occurs" do
+      begin
+        Capybara.using_session(:raise) do
+          raise
+        end
+      rescue Exception
+      end
+      Capybara.session_name.should == :default
+    end
+
+    it "should yield the passed block" do
+      called = false
+      Capybara.using_session(:administrator) { called = true }
+      called.should == true
+    end
+  end
+
+  describe "#session_name" do
+    it "should default to :default" do
+      Capybara.session_name.should == :default
+    end
   end
 
   describe 'the DSL' do
@@ -125,6 +194,15 @@ describe Capybara do
       foo.page.visit('/with_html')
       foo.page.click_link('ullamco')
       foo.page.body.should include('Another World')
+    end
+
+    it "should provide an 'using_session' shortcut" do
+      klass = Class.new do
+        include Capybara
+      end
+      Capybara.should_receive(:using_session).with(:name)
+      foo = klass.new
+      foo.using_session(:name)
     end
   end
 

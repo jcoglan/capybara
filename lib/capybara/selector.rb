@@ -2,6 +2,13 @@ module Capybara
   class Selector
     attr_reader :name
 
+    class Normalized
+      attr_accessor :selector, :locator, :options, :xpaths
+
+      def failure_message; selector.failure_message; end
+      def name; selector.name; end
+    end
+
     class << self
       def all
         @selectors ||= {}
@@ -15,19 +22,26 @@ module Capybara
         all.delete(name.to_sym)
       end
 
-      def normalize(name_or_locator, locator=nil)
-        xpath = if locator
-          all[name_or_locator.to_sym].call(locator)
+      def normalize(*args)
+        normalized = Normalized.new
+        normalized.options = if args.last.is_a?(Hash) then args.pop else {} end
+
+        if args[1]
+          normalized.selector = all[args[0]]
+          normalized.locator = args[1]
         else
-          selector = all.values.find { |s| s.match?(name_or_locator) }
-          selector ||= all[Capybara.default_selector]
-          selector.call(name_or_locator)
+          normalized.selector = all.values.find { |s| s.match?(args[0]) }
+          normalized.locator = args[0]
         end
+        normalized.selector ||= all[Capybara.default_selector]
+
+        xpath = normalized.selector.call(normalized.locator)
         if xpath.respond_to?(:to_xpaths)
-          xpath.to_xpaths
+          normalized.xpaths = xpath.to_xpaths
         else
-          [xpath.to_s].flatten
+          normalized.xpaths = [xpath.to_s].flatten
         end
+        normalized
       end
     end
 
@@ -44,6 +58,11 @@ module Capybara
     def match(&block)
       @match = block if block
       @match
+    end
+
+    def failure_message(&block)
+      @failure_message = block if block
+      @failure_message
     end
 
     def call(locator)

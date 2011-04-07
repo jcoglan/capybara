@@ -34,6 +34,16 @@ shared_examples_for "session" do
     end
   end
 
+  describe '#html' do
+    it "should return the unmodified page body" do
+      # html and body should be aliased, but we can't just check for
+      # method(:html) == method(:body) because these shared examples get run
+      # against the DSL, which uses forwarding methods.  So we test behavior.
+      @session.visit('/')
+      @session.body.should include('Hello world!')
+    end
+  end
+
   describe '#source' do
     it "should return the unmodified page source" do
       @session.visit('/')
@@ -42,6 +52,7 @@ shared_examples_for "session" do
   end
 
   it_should_behave_like "all"
+  it_should_behave_like "first"
   it_should_behave_like "attach_file"
   it_should_behave_like "check"
   it_should_behave_like "choose"
@@ -65,27 +76,36 @@ shared_examples_for "session" do
   it_should_behave_like "has_select"
   it_should_behave_like "has_table"
   it_should_behave_like "select"
+  it_should_behave_like "text"
   it_should_behave_like "uncheck"
   it_should_behave_like "unselect"
   it_should_behave_like "within"
   it_should_behave_like "current_url"
+  # it_should_behave_like "current_host"
 
   it "should encode complex field names, like array[][value]" do
     @session.visit('/form')
     @session.fill_in('address1_city', :with =>'Paris')
     @session.fill_in('address1_street', :with =>'CDG')
+    @session.fill_in('address1_street', :with =>'CDG')
+    @session.select("France", :from => 'address1_country')
+
     @session.fill_in('address2_city', :with => 'Mikolaiv')
     @session.fill_in('address2_street', :with => 'PGS')
+    @session.select("Ukraine", :from => 'address2_country')
+
     @session.click_button "awesome"
 
     addresses=extract_results(@session)["addresses"]
     addresses.should have(2).addresses
 
-    addresses[0]["street"].should == 'CDG'
-    addresses[0]["city"].should   == 'Paris'
+    addresses[0]["street"].should   == 'CDG'
+    addresses[0]["city"].should     == 'Paris'
+    addresses[0]["country"].should  == 'France'
 
-    addresses[1]["street"].should == 'PGS'
-    addresses[1]["city"].should   == 'Mikolaiv'
+    addresses[1]["street"].should   == 'PGS'
+    addresses[1]["city"].should     == 'Mikolaiv'
+    addresses[1]["country"].should  == 'Ukraine'
   end
 
 end
