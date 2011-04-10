@@ -113,7 +113,8 @@ module Capybara
     # @return [String] Path of the current page, without any domain information
     #
     def current_path
-      URI.parse(current_url).path
+      path = URI.parse(current_url).path
+      path if path and not path.empty?
     end
 
     ##
@@ -122,7 +123,7 @@ module Capybara
     #
     def current_host
       uri = URI.parse(current_url)
-      "#{uri.scheme}://#{uri.host}"
+      "#{uri.scheme}://#{uri.host}" if uri.host
     end
 
     ##
