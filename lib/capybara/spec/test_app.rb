@@ -6,17 +6,11 @@ class TestApp < Sinatra::Base
   set :root, File.dirname(__FILE__)
   set :static, true
 
-  def self.page(method, path, &handler)
-    template_name = ('template_' + path.gsub(/[^a-z]/i, '')).to_sym
-    template(template_name, &handler)
-    __send__(method, path) { erb(template_name) }
-  end
-
-  page :get, '/' do
+  get '/' do
     'Hello world!'
   end
 
-  page :get, '/foo' do
+  get '/foo' do
     'Another World'
   end
 
@@ -28,50 +22,40 @@ class TestApp < Sinatra::Base
     redirect '/landed'
   end
 
-  page :get, '/host' do
-    <<-HTML
-    Current host is <%= request.scheme %>://<%= request.host %>
-    HTML
+  get '/host' do
+    "Current host is #{request.scheme}://#{request.host}"
   end
 
-  page :get, '/redirect/:times/times' do
-    <<-HTML
-    <%
+  get '/redirect/:times/times' do
     times = params[:times].to_i
-    if times.zero? %>
-      redirection complete
-    <% else
-      redirect "/redirect/" + (times - 1).to_s + "/times"
+    if times.zero?
+      "redirection complete"
+    else
+      redirect "/redirect/#{times - 1}/times"
     end
-    %>
-    HTML
   end
 
-  page :get, '/landed' do
+  get '/landed' do
     "You landed"
   end
 
-  page :get, '/with-quotes' do
+  get '/with-quotes' do
     %q{"No," he said, "you can't do that."}
   end
 
-  page :get, '/form/get' do
-    '<pre id="results"><%= params[:form].to_yaml %></pre>'
+  get '/form/get' do
+    '<pre id="results">' + params[:form].to_yaml + '</pre>'
   end
 
-  page :get, '/favicon.ico' do
-    ''
+  get '/favicon.ico' do
+    nil
   end
 
   post '/redirect' do
     redirect '/redirect_again'
   end
 
-  page :get, "/delete" do
-    "The requested object was deleted"
-  end
-
-  page :delete, "/delete" do
+  delete "/delete" do
     "The requested object was deleted"
   end
 
@@ -79,72 +63,53 @@ class TestApp < Sinatra::Base
     redirect back
   end
 
-  page :get, '/slow_response' do
+  get '/slow_response' do
     sleep 2
     'Finally!'
   end
 
-  page :get, '/set_cookie' do
-    <<-HTML
-    <%
+  get '/set_cookie' do
     cookie_value = 'test_cookie'
     response.set_cookie('capybara', cookie_value)
-    %>
-    
-    Cookie set to <%= cookie_value %>
-    HTML
+    "Cookie set to #{cookie_value}"
   end
 
-  page :get, '/get_cookie' do
-    "<%= request.cookies['capybara'] %>"
+  get '/get_cookie' do
+    request.cookies['capybara']
   end
 
-  page :get, '/get_header' do
-    <<-HTML
-    <%= env['HTTP_FOO'] %>
-    HTML
+  get '/get_header' do
+    env['HTTP_FOO']
   end
 
-  page :get, '/:view' do |view|
-    <<-HTML
-    <%= erb params[:view].to_sym %>
-    HTML
+  get '/:view' do |view|
+    erb view.to_sym
   end
 
-  page :post, '/form' do
-    '<pre id="results"><%= params[:form].to_yaml %></pre>'
+  post '/form' do
+    '<pre id="results">' + params[:form].to_yaml + '</pre>'
   end
 
-  page :post, '/upload_empty' do
-    <<-HTML
-    <%=
+  post '/upload_empty' do
     if params[:form][:file].nil?
       'Successfully ignored empty file field.'
     else
       'Something went wrong.'
     end
-    %>
-    HTML
   end
 
-  page :post, '/upload' do
-    <<-HTML
-    <%=
+  post '/upload' do
     begin
       buffer = []
-      buffer << "Content-type: " + params[:form][:document][:type]
-      buffer << "File content: " + params[:form][:document][:tempfile].read
+      buffer << "Content-type: #{params[:form][:document][:type]}"
+      buffer << "File content: #{params[:form][:document][:tempfile].read}"
       buffer.join(' | ')
     rescue
       'No file uploaded'
     end
-    %>
-    HTML
   end
 
-  page :post, '/upload_multiple' do
-    <<-HTML
-    <%=
+  post '/upload_multiple' do
     begin
       buffer = []
       buffer << "Content-type: #{params[:form][:multiple_documents][0][:type]}"
@@ -153,8 +118,6 @@ class TestApp < Sinatra::Base
     rescue
       'No files uploaded'
     end
-    %>
-    HTML
   end
 end
 
