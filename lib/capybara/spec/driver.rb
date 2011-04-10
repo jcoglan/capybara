@@ -102,7 +102,7 @@ shared_examples_for 'driver' do
 
       it "should return document text on /html selector" do
         @driver.visit('/with_simple_html')
-        @driver.find('/html')[0].text.should include('Bar')
+        @driver.find('/html')[0].text.should == 'Bar'
       end
     end
   end
