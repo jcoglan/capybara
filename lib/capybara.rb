@@ -5,6 +5,7 @@ module Capybara
   class CapybaraError < StandardError; end
   class DriverNotFoundError < CapybaraError; end
   class ElementNotFound < CapybaraError; end
+  class FileNotFound < CapybaraError; end
   class UnselectNotAllowed < CapybaraError; end
   class NotSupportedByDriverError < CapybaraError; end
   class TimeoutError < CapybaraError; end
@@ -199,7 +200,18 @@ module Capybara
   module Driver
     autoload :Base,     'capybara/driver/base'
     autoload :Node,     'capybara/driver/node'
-    autoload :Selenium, 'capybara/driver/selenium_driver'
+
+    class Selenium
+      def initialize(*args)
+        raise "Capybara::Driver::Selenium has been renamed to Capybara::Selenium::Driver"
+      end
+    end
+
+    class RackTest
+      def initialize(*args)
+        raise "Capybara::Driver::RackTest has been renamed to Capybara::RackTest::Driver"
+      end
+    end
   end
 
   module RackTest
@@ -207,6 +219,11 @@ module Capybara
     autoload :Node,    'capybara/rack_test/node'
     autoload :Form,    'capybara/rack_test/form'
     autoload :Browser, 'capybara/rack_test/browser'
+  end
+
+  module Selenium
+    autoload :Node,    'capybara/selenium/node'
+    autoload :Driver,  'capybara/selenium/driver'
   end
 end
 
@@ -226,5 +243,5 @@ Capybara.register_driver :rack_test do |app|
 end
 
 Capybara.register_driver :selenium do |app|
-  Capybara::Driver::Selenium.new(app)
+  Capybara::Selenium::Driver.new(app)
 end
