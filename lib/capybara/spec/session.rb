@@ -62,13 +62,13 @@ shared_examples_for "session" do
       @session.body.should_not include('test_cookie')
     end
 
-    it "resets current host" do
-      @session.visit('http://capybara-testapp.heroku.com')
-      @session.current_host.should == 'http://capybara-testapp.heroku.com'
-
-      @session.reset!
-      @session.current_host.should be_nil
-    end
+    # it "resets current host" do
+    #   @session.visit('http://capybara-testapp.heroku.com')
+    #   @session.current_host.should == 'http://capybara-testapp.heroku.com'
+    # 
+    #   @session.reset!
+    #   @session.current_host.should be_nil
+    # end
 
     it "resets current path" do
       @session.visit('/with_html')
