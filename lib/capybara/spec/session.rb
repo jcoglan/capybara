@@ -62,13 +62,13 @@ shared_examples_for "session" do
       @session.body.should_not include('test_cookie')
     end
 
-    # it "resets current host" do
-    #   @session.visit('http://capybara-testapp.heroku.com')
-    #   @session.current_host.should == 'http://capybara-testapp.heroku.com'
-    # 
-    #   @session.reset!
-    #   @session.current_host.should be_nil
-    # end
+    it "resets current host" do
+      @session.visit('http://capybara-testapp.heroku.com')
+      @session.current_host.should == 'http://capybara-testapp.heroku.com'
+    
+      @session.reset!
+      @session.current_host.should be_nil
+    end
 
     it "resets current path" do
       @session.visit('/with_html')
@@ -119,7 +119,7 @@ shared_examples_for "session" do
   it_should_behave_like "unselect"
   it_should_behave_like "within"
   it_should_behave_like "current_url"
-  # it_should_behave_like "current_host"
+  it_should_behave_like "current_host"
 
   it "should encode complex field names, like array[][value]" do
     @session.visit('/form')
