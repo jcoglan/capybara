@@ -64,10 +64,6 @@ module Capybara
           Thread.new do
             Capybara.server.call(Identify.new(@app), @port)
           end
-
-          Capybara.timeout(Capybara.server_boot_timeout) do
-            if responsive? then true else sleep(0.5) and false end
-          end
         end
       end
     rescue TimeoutError
