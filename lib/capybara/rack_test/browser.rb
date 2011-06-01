@@ -35,15 +35,22 @@ class Capybara::RackTest::Browser
     new_uri = URI.parse(path)
     current_uri = URI.parse(current_url)
 
-    path = request_path + path if path.start_with?('?')
-    path = current_host + path if path.start_with?('/')
-
     if new_uri.host
       @current_host = new_uri.scheme + '://' + new_uri.host
     end
-
+    
+    if new_uri.relative?
+      path = request_path + path if path.start_with?('?')
+      
+      unless path.start_with?('/')
+        folders = request_path.split('/')
+        path = (folders[0, folders.size - 1] << path).join('/')
+      end
+      path = current_host + path
+    end
+    
     reset_cache!
-    send(method, to_binary(path), to_binary( attributes ), env)
+    send(method, path, attributes, env)
     follow_redirects!
   end
 
@@ -81,18 +88,8 @@ class Capybara::RackTest::Browser
 
 protected
 
-  def to_binary(object)
-    return object unless Kernel.const_defined?(:Encoding)
-
-    if object.respond_to?(:force_encoding)
-      object.dup.force_encoding(Encoding::ASCII_8BIT)
-    elsif object.respond_to?(:each_pair) #Hash
-      {}.tap { |x| object.each_pair {|k,v| x[to_binary(k)] = to_binary(v) } }
-    elsif object.respond_to?(:each) #Array
-      object.map{|x| to_binary(x)}
-    else
-      object
-    end
+  def build_rack_mock_session
+    Rack::MockSession.new(app, current_host)
   end
 
   def request_path
