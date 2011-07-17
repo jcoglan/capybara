@@ -52,7 +52,7 @@ shared_examples_for "click_button" do
         end
 
         it "should serialise and submit color fields" do
-          @results['html5_color'].should == '#FFFFFF'
+          @results['html5_color'].should =~ /^#FFFFFF$/i
         end
       end
 
