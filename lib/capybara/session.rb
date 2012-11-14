@@ -1,5 +1,3 @@
-require 'capybara/util/timeout'
-
 module Capybara
 
   ##
@@ -30,26 +28,30 @@ module Capybara
       :all, :first, :attach_file, :text, :check, :choose,
       :click_link_or_button, :click_button, :click_link, :field_labeled,
       :fill_in, :find, :find_button, :find_by_id, :find_field, :find_link,
-      :has_content?, :has_css?, :has_no_content?, :has_no_css?, :has_no_xpath?,
-      :has_xpath?, :select, :uncheck, :has_link?, :has_no_link?, :has_button?,
-      :has_no_button?, :has_field?, :has_no_field?, :has_checked_field?,
-      :has_unchecked_field?, :has_no_table?, :has_table?, :unselect,
-      :has_select?, :has_no_select?, :has_selector?, :has_no_selector?,
-      :click_on, :has_no_checked_field?, :has_no_unchecked_field?
+      :has_content?, :has_text?, :has_css?, :has_no_content?, :has_no_text?,
+      :has_no_css?, :has_no_xpath?, :resolve, :has_xpath?, :select, :uncheck,
+      :has_link?, :has_no_link?, :has_button?, :has_no_button?, :has_field?,
+      :has_no_field?, :has_checked_field?, :has_unchecked_field?,
+      :has_no_table?, :has_table?, :unselect, :has_select?, :has_no_select?,
+      :has_selector?, :has_no_selector?, :click_on, :has_no_checked_field?,
+      :has_no_unchecked_field?, :query, :assert_selector, :assert_no_selector
     ]
     SESSION_METHODS = [
       :body, :html, :current_url, :current_host, :evaluate_script, :source,
-      :visit, :wait_until, :within, :within_fieldset, :within_table,
-      :within_frame, :within_window, :current_path, :save_page,
-      :save_and_open_page, :reset_session!
+      :visit, :within, :within_fieldset, :within_table, :within_frame,
+      :within_window, :current_path, :save_page, :save_and_open_page,
+      :save_screenshot, :reset_session!, :response_headers, :status_code
     ]
     DSL_METHODS = NODE_METHODS + SESSION_METHODS
 
-    attr_reader :mode, :app
+    attr_reader :mode, :app, :server
 
     def initialize(mode, app=nil)
       @mode = mode
       @app = app
+      if Capybara.run_server and @app and driver.needs_server?
+        @server = Capybara::Server.new(@app).boot
+      end
     end
 
     def driver
@@ -67,7 +69,11 @@ module Capybara
     # Reset the session, removing all cookies.
     #
     def reset!
-      driver.reset!
+      driver.reset! if @touched
+      @touched = false
+      raise @server.error if @server and @server.error
+    ensure
+      @server.reset_error! if @server
     end
     alias_method :cleanup!, :reset!
     alias_method :reset_session!, :reset!
@@ -94,12 +100,11 @@ module Capybara
 
     ##
     #
-    # @return [String] A snapshot of the HTML of the current document, as it looks right now (potentially modified by JavaScript).
+    # @return [String] A snapshot of the DOM of the current document, as it looks right now (potentially modified by JavaScript).
     #
-    def body
-      driver.body
+    def html
+      driver.html
     end
-    alias_method :html, :body
 
     ##
     #
@@ -108,6 +113,7 @@ module Capybara
     def source
       driver.source
     end
+    alias_method :body, :source
 
     ##
     #
@@ -143,17 +149,39 @@ module Capybara
     #     session.visit('/foo')
     #     session.visit('http://google.com')
     #
-    # For drivers which can run against an external application, such as culerity and selenium
+    # For drivers which can run against an external application, such as the selenium driver
     # giving an absolute URL will navigate to that page. This allows testing applications
-    # running on remote servers. For these drivers, setting Capybara.app_host will make the
+    # running on remote servers. For these drivers, setting {Capybara.app_host} will make the
     # remote server the default. For example:
     #
     #     Capybara.app_host = 'http://google.com'
     #     session.visit('/') # visits the google homepage
     #
+    # If {Capybara.always_include_port} is set to true and this session is running against
+    # a rack application, then the port that the rack application is running on will automatically
+    # be inserted into the URL. Supposing the app is running on port `4567`, doing something like:
+    #
+    #     visit("http://google.com/test")
+    #
+    # Will actually navigate to `http://google.com:4567/test`.
+    #
     # @param [String] url     The URL to navigate to
     #
     def visit(url)
+      @touched = true
+
+      if @server
+        unless url =~ /^http/
+          url = (Capybara.app_host || "http://#{@server.host}:#{@server.port}") + url.to_s
+        end
+
+        if Capybara.always_include_port
+          uri = URI.parse(url)
+          uri.port = @server.port if uri.port == uri.default_port
+          url = uri.to_s
+        end
+      end
+
       driver.visit(url)
     end
 
@@ -182,11 +210,7 @@ module Capybara
     # @raise  [Capybara::ElementNotFound]   If the scope can't be found before time expires
     #
     def within(*args)
-      new_scope = if args.size == 1 && Capybara::Node::Base === args.first
-                    args.first
-                  else
-                    find(*args)
-                  end
+      new_scope = if args.first.is_a?(Capybara::Node::Base) then args.first else find(*args) end
       begin
         scopes.push(new_scope)
         yield
@@ -202,7 +226,7 @@ module Capybara
     # @param [String] locator    Id or legend of the fieldset
     #
     def within_fieldset(locator)
-      within :xpath, XPath::HTML.fieldset(locator) do
+      within :fieldset, locator do
         yield
       end
     end
@@ -214,7 +238,7 @@ module Capybara
     # @param [String] locator    Id or caption of the table
     #
     def within_table(locator)
-      within :xpath, XPath::HTML.table(locator) do
+      within :table, locator do
         yield
       end
     end
@@ -224,7 +248,7 @@ module Capybara
     # Execute the given block within the given iframe given the id of that iframe. Only works on
     # some drivers (e.g. Selenium)
     #
-    # @param [String] locator    Id of the frame
+    # @param [String] frame_id   Id of the frame
     #
     def within_frame(frame_id)
       driver.within_frame(frame_id) do
@@ -237,7 +261,7 @@ module Capybara
     # Execute the given block within the given window. Only works on
     # some drivers (e.g. Selenium)
     #
-    # @param [String] locator of the window
+    # @param [String] handle of the window
     #
     def within_window(handle, &blk)
       driver.within_window(handle, &blk)
@@ -245,23 +269,14 @@ module Capybara
 
     ##
     #
-    # Retry executing the block until a truthy result is returned or the timeout time is exceeded
-    #
-    # @param [Integer] timeout   The amount of seconds to retry executing the given block
-    #
-    def wait_until(timeout = Capybara.default_wait_time)
-      Capybara.timeout(timeout,driver) { yield }
-    end
-
-    ##
-    #
     # Execute the given script, not returning a result. This is useful for scripts that return
-    # complex objects, such as jQuery statements. +execute_script+ should always be used over
+    # complex objects, such as jQuery statements. +execute_script+ should be used over
     # +evaluate_script+ whenever possible.
     #
     # @param [String] script   A string of JavaScript to execute
     #
     def execute_script(script)
+      @touched = true
       driver.execute_script(script)
     end
 
@@ -275,21 +290,47 @@ module Capybara
     # @return [Object]          The result of the evaluated JavaScript (may be driver specific)
     #
     def evaluate_script(script)
+      @touched = true
       driver.evaluate_script(script)
+    end
+
+    ##
+    #
+    # Save a snapshot of the page.
+    #
+    # @param  [String] path     The path to where it should be saved [optional]
+    #
+    def save_page(path=nil)
+      path ||= "capybara-#{Time.new.strftime("%Y%m%d%H%M%S")}#{rand(10**10)}.html"
+      path = File.expand_path(path, Capybara.save_and_open_page_path) if Capybara.save_and_open_page_path
+
+      FileUtils.mkdir_p(File.dirname(path))
+
+      File.open(path,'w') { |f| f.write(body) }
+      path
     end
 
     ##
     #
     # Save a snapshot of the page and open it in a browser for inspection
     #
-    def save_page
-      require 'capybara/util/save_and_open_page'
-      Capybara.save_page(body)
+    # @param  [String] path     The path to where it should be saved [optional]
+    #
+    def save_and_open_page(file_name=nil)
+      require "launchy"
+      Launchy.open(save_page(file_name))
+    rescue LoadError
+      warn "Please install the launchy gem to open page with save_and_open_page"
     end
 
-    def save_and_open_page
-      require 'capybara/util/save_and_open_page'
-      Capybara.save_and_open_page(body)
+    ##
+    #
+    # Save a screenshot of page
+    #
+    # @param  [String] path    A string of image path
+    # @option [Hash]   options Options for saving screenshot
+    def save_screenshot(path, options={})
+      driver.save_screenshot(path, options)
     end
 
     def document
@@ -297,11 +338,10 @@ module Capybara
     end
 
     NODE_METHODS.each do |method|
-      class_eval <<-RUBY
-        def #{method}(*args, &block)
-          current_node.send(:#{method}, *args, &block)
-        end
-      RUBY
+      define_method method do |*args, &block|
+        @touched = true
+        current_node.send(method, *args, &block)
+      end
     end
 
     def inspect

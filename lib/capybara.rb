@@ -1,11 +1,13 @@
 require 'timeout'
 require 'nokogiri'
 require 'xpath'
+
 module Capybara
   class CapybaraError < StandardError; end
   class DriverNotFoundError < CapybaraError; end
   class FrozenInTime < CapybaraError; end
   class ElementNotFound < CapybaraError; end
+  class Ambiguous < ElementNotFound; end
   class ExpectationNotMet < ElementNotFound; end
   class FileNotFound < CapybaraError; end
   class UnselectNotAllowed < CapybaraError; end
@@ -15,10 +17,12 @@ module Capybara
   class InfiniteRedirectError < TimeoutError; end
 
   class << self
-    attr_accessor :asset_root, :app_host, :run_server, :default_host
-    attr_accessor :server_port, :server_boot_timeout
-    attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements, :prefer_visible_elements
+    attr_accessor :asset_root, :app_host, :run_server, :default_host, :always_include_port
+    attr_accessor :server_host, :server_port
+    attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements
     attr_accessor :save_and_open_page_path, :automatic_reload
+    attr_writer :default_driver, :current_driver, :javascript_driver, :session_name
+    attr_accessor :app
 
     ##
     #
@@ -33,11 +37,11 @@ module Capybara
     #
     # [asset_root = String]               Where static assets are located, used by save_and_open_page
     # [app_host = String]                 The default host to use when giving a relative URL to visit
+    # [always_include_port = Boolean]     Whether the Rack server's port should automatically be inserted into every visited URL (Default: false)
     # [run_server = Boolean]              Whether to start a Rack server for the given Rack app (Default: true)
     # [default_selector = :css/:xpath]    Methods which take a selector use the given type by default (Default: CSS)
     # [default_wait_time = Integer]       The number of seconds to wait for asynchronous processes to finish (Default: 2)
     # [ignore_hidden_elements = Boolean]  Whether to ignore hidden elements on the page (Default: false)
-    # [prefer_visible_elements = Boolean] Whether to prefer visible elements over hidden elements (Default: true)
     # [automatic_reload = Boolean]        Whether to automatically reload elements as Capybara is waiting (Default: true)
     # [save_and_open_page_path = String]  Where to put pages saved through save_and_open_page (Default: Dir.pwd)
     #
@@ -181,14 +185,130 @@ module Capybara
       end
     end
 
+    ##
+    #
+    # @return [Symbol]    The name of the driver to use by default
+    #
+    def default_driver
+      @default_driver || :rack_test
+    end
+
+    ##
+    #
+    # @return [Symbol]    The name of the driver currently in use
+    #
+    def current_driver
+      @current_driver || default_driver
+    end
+    alias_method :mode, :current_driver
+
+    ##
+    #
+    # @return [Symbol]    The name of the driver used when JavaScript is needed
+    #
+    def javascript_driver
+      @javascript_driver || :selenium
+    end
+
+    ##
+    #
+    # Use the default driver as the current driver
+    #
+    def use_default_driver
+      @current_driver = nil
+    end
+
+    ##
+    #
+    # Yield a block using a specific driver
+    #
+    def using_driver(driver)
+      previous_driver = Capybara.current_driver
+      Capybara.current_driver = driver
+      yield
+    ensure
+      @current_driver = previous_driver
+    end
+
+    ##
+    #
+    # Yield a block using a specific wait time
+    #
+    def using_wait_time(seconds)
+      previous_wait_time = Capybara.default_wait_time
+      Capybara.default_wait_time = seconds
+      yield
+    ensure
+      Capybara.default_wait_time = previous_wait_time
+    end
+
+    ##
+    #
+    # The current Capybara::Session based on what is set as Capybara.app and Capybara.current_driver
+    #
+    # @return [Capybara::Session]     The currently used session
+    #
+    def current_session
+      session_pool["#{current_driver}:#{session_name}:#{app.object_id}"] ||= Capybara::Session.new(current_driver, app)
+    end
+
+    ##
+    #
+    # Reset sessions, cleaning out the pool of sessions. This will remove any session information such
+    # as cookies.
+    #
+    def reset_sessions!
+      session_pool.each { |mode, session| session.reset! }
+    end
+    alias_method :reset!, :reset_sessions!
+
+    ##
+    #
+    # The current session name.
+    #
+    # @return [Symbol]    The name of the currently used session.
+    #
+    def session_name
+      @session_name ||= :default
+    end
+
+    ##
+    #
+    # Yield a block using a specific session name.
+    #
+    def using_session(name)
+      self.session_name = name
+      yield
+    ensure
+      self.session_name = :default
+    end
+
+    def included(base)
+      base.send(:include, Capybara::DSL)
+      warn "`include Capybara` is deprecated. Please use `include Capybara::DSL` instead."
+    end
+
     def deprecate(method, alternate_method)
       warn "DEPRECATED: ##{method} is deprecated, please use ##{alternate_method} instead"
     end
+
+  private
+
+    def session_pool
+      @session_pool ||= {}
+    end
   end
 
+  self.default_driver = nil
+  self.current_driver = nil
+
+  autoload :DSL,        'capybara/dsl'
   autoload :Server,     'capybara/server'
   autoload :Session,    'capybara/session'
   autoload :Selector,   'capybara/selector'
+  autoload :Query,      'capybara/query'
+  autoload :Result,     'capybara/result'
+  autoload :Helpers,    'capybara/helpers'
   autoload :VERSION,    'capybara/version'
 
   module Node
@@ -232,13 +352,12 @@ module Capybara
 end
 
 Capybara.configure do |config|
+  config.always_include_port = false
   config.run_server = true
   config.server {|app, port| Capybara.run_default_server(app, port)}
-  config.server_boot_timeout = 10
   config.default_selector = :css
   config.default_wait_time = 2
   config.ignore_hidden_elements = false
-  config.prefer_visible_elements = true
   config.default_host = "http://www.example.com"
   config.automatic_reload = true
 end

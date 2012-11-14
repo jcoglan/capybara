@@ -22,10 +22,14 @@ module Capybara
     #
     class Element < Base
 
-      def initialize(session, base, parent, selector)
+      def initialize(session, base, parent, query)
         super(session, base)
         @parent = parent
-        @selector = selector
+        @query = query
+      end
+
+      def allow_reload!
+        @allow_reload = true
       end
 
       ##
@@ -33,7 +37,7 @@ module Capybara
       # @return [Object]    The native element from the driver, this allows access to driver specific methods
       #
       def native
-        wait_until { base.native }
+        synchronize { base.native }
       end
 
       ##
@@ -41,7 +45,7 @@ module Capybara
       # @return [String]    The text of the element
       #
       def text
-        wait_until { base.text }
+        synchronize { base.text }
       end
 
       ##
@@ -54,7 +58,7 @@ module Capybara
       # @return [String]               The value of the attribute
       #
       def [](attribute)
-        wait_until { base[attribute] }
+        synchronize { base[attribute] }
       end
 
       ##
@@ -62,7 +66,7 @@ module Capybara
       # @return [String]    The value of the form element
       #
       def value
-        wait_until { base.value }
+        synchronize { base.value }
       end
 
       ##
@@ -72,7 +76,7 @@ module Capybara
       # @param [String] value    The new value
       #
       def set(value)
-        wait_until { base.set(value) }
+        synchronize { base.set(value) }
       end
 
       ##
@@ -80,7 +84,7 @@ module Capybara
       # Select this node if is an option element inside a select tag
       #
       def select_option
-        wait_until { base.select_option }
+        synchronize { base.select_option }
       end
 
       ##
@@ -88,7 +92,7 @@ module Capybara
       # Unselect this node if is an option element inside a multiple select tag
       #
       def unselect_option
-        wait_until { base.unselect_option }
+        synchronize { base.unselect_option }
       end
 
       ##
@@ -96,7 +100,7 @@ module Capybara
       # Click the Element
       #
       def click
-        wait_until { base.click }
+        synchronize { base.click }
       end
 
       ##
@@ -104,7 +108,7 @@ module Capybara
       # @return [String]      The tag name of the element
       #
       def tag_name
-        wait_until { base.tag_name }
+        synchronize { base.tag_name }
       end
 
       ##
@@ -115,7 +119,7 @@ module Capybara
       # @return [Boolean]     Whether the element is visible
       #
       def visible?
-        wait_until { base.visible? }
+        synchronize { base.visible? }
       end
 
       ##
@@ -125,7 +129,7 @@ module Capybara
       # @return [Boolean]     Whether the element is checked
       #
       def checked?
-        wait_until { base.checked? }
+        synchronize { base.checked? }
       end
 
       ##
@@ -135,7 +139,7 @@ module Capybara
       # @return [Boolean]     Whether the element is selected
       #
       def selected?
-        wait_until { base.selected? }
+        synchronize { base.selected? }
       end
 
       ##
@@ -145,7 +149,7 @@ module Capybara
       # @return [String]      An XPath expression
       #
       def path
-        wait_until { base.path }
+        synchronize { base.path }
       end
 
       ##
@@ -156,7 +160,7 @@ module Capybara
       # @param [String] event       The name of the event to trigger
       #
       def trigger(event)
-        wait_until { base.trigger(event) }
+        synchronize { base.trigger(event) }
       end
 
       ##
@@ -170,24 +174,14 @@ module Capybara
       # @param [Capybara::Element] node     The element to drag to
       #
       def drag_to(node)
-        wait_until { base.drag_to(node.base) }
-      end
-
-      def find(*args)
-        wait_until { super }
-      end
-
-      def first(*args)
-        wait_until { super }
-      end
-
-      def all(*args)
-        wait_until { super }
+        synchronize { base.drag_to(node.base) }
       end
 
       def reload
-        reloaded = parent.reload.first(@selector.name, @selector.locator, @selector.options)
-        @base = reloaded.base if reloaded
+        if @allow_reload
+          reloaded = parent.reload.first(@query.name, @query.locator, @query.options)
+          @base = reloaded.base if reloaded
+        end
         self
       end
 

@@ -6,7 +6,7 @@ describe Capybara do
       Capybara.string <<-STRING
         <div id="page">
           <div id="content">
-            <h1 data="fantastic">Awesome</h1>
+            <h1 data="fantastic">Totally awesome</h1>
             <p>Yes it is</p>
           </div>
 
@@ -18,6 +18,10 @@ describe Capybara do
               <option>Monkey</option>
               <option selected="selected">Capybara</option>
             </select>
+          </div>
+
+          <section>
+            <div class="subsection"></div>
           </div>
         </div>
       STRING
@@ -32,14 +36,22 @@ describe Capybara do
       Capybara.add_selector :lifeform do
         xpath { |name| "//option[contains(.,'#{name}')]" }
       end
-      string.should have_selector(:page)
-      string.should_not have_selector(:'does-not-exist')
+      string.should have_selector(:id, "page")
+      string.should_not have_selector(:id, 'does-not-exist')
       string.should have_selector(:lifeform, "Monkey")
       string.should_not have_selector(:lifeform, "Gorilla")
     end
 
+    it 'allows custom matcher using css' do
+      Capybara.add_selector :section do
+        css { |css_class| "section .#{css_class}" }
+      end
+      string.should     have_selector(:section, 'subsection')
+      string.should_not have_selector(:section, 'section_8')
+    end
+
     it "allows using matchers with text option" do
-      string.should have_css('h1', :text => 'Awesome')
+      string.should have_css('h1', :text => 'Totally awesome')
       string.should_not have_css('h1', :text => 'Not so awesome')
     end
 
@@ -49,7 +61,7 @@ describe Capybara do
     end
 
     it "allows finding elements and extracting text from them" do
-      string.find('//h1').text.should == 'Awesome'
+      string.find('//h1').text.should == 'Totally awesome'
     end
 
     it "allows finding elements and extracting attributes from them" do

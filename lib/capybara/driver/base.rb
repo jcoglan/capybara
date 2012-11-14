@@ -15,7 +15,7 @@ class Capybara::Driver::Base
     raise NotImplementedError
   end
 
-  def body
+  def html
     raise NotImplementedError
   end
 
@@ -24,6 +24,10 @@ class Capybara::Driver::Base
   end
 
   def evaluate_script(script)
+    raise Capybara::NotSupportedByDriverError
+  end
+
+  def save_screenshot(path, options={})
     raise Capybara::NotSupportedByDriverError
   end
 
@@ -51,14 +55,10 @@ class Capybara::Driver::Base
     false
   end
 
-  def wait_until(*args)
-  end
-
   def reset!
   end
 
-  def has_shortcircuit_timeout?
+  def needs_server?
     false
   end
-
 end

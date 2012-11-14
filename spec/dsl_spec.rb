@@ -1,17 +1,24 @@
 require 'spec_helper'
-
 require 'capybara/dsl'
 
+class TestClass
+  include Capybara::DSL
+end
+
+Capybara::SpecHelper.run_specs TestClass.new, "DSL", :skip => [
+  :js,
+  :screenshot,
+  :frames,
+  :windows
+]
+
 describe Capybara::DSL do
-
-  before do
-    Capybara.app = TestApp
-  end
-
   after do
     Capybara.session_name = nil
     Capybara.default_driver = nil
+    Capybara.javascript_driver = nil
     Capybara.use_default_driver
+    Capybara.app = TestApp
   end
 
   describe '#default_driver' do
@@ -68,12 +75,20 @@ describe Capybara::DSL do
       driver.should == :selenium
     end
 
-    it 'should reset the driver using Capybara.use_default_driver, even if an exception occurs' do
+    it 'should return the driver to default if it has not been changed' do
+      Capybara.using_driver(:selenium) do
+        Capybara.current_driver.should == :selenium
+      end
+      Capybara.current_driver.should == Capybara.default_driver
+    end
+
+    it 'should reset the driver even if an exception occurs' do
+      driver_before_block = Capybara.current_driver
       begin
         Capybara.using_driver(:selenium) { raise "ohnoes!" }
       rescue Exception
       end
-      Capybara.current_driver.should == Capybara.default_driver
+      Capybara.current_driver.should == driver_before_block
     end
 
     it 'should return the driver to what it was previously' do
@@ -95,13 +110,21 @@ describe Capybara::DSL do
   end
 
   describe '#using_wait_time' do
+    before do
+      @previous_wait_time = Capybara.default_wait_time
+    end
+
+    after do
+      Capybara.default_wait_time = @previous_wait_time
+    end
+
     it "should switch the wait time and switch it back" do
       in_block = nil
       Capybara.using_wait_time 6 do
         in_block = Capybara.default_wait_time
       end
       in_block.should == 6
-      Capybara.default_wait_time.should == 0
+      Capybara.default_wait_time.should == @previous_wait_time
     end
 
     it "should ensure wait time is reset" do
@@ -110,11 +133,7 @@ describe Capybara::DSL do
           raise "hell"
         end
       end.to raise_error
-      Capybara.default_wait_time.should == 0
-    end
-
-    after do
-      Capybara.default_wait_time = 0
+      Capybara.default_wait_time.should == @previous_wait_time
     end
   end
 
@@ -208,9 +227,6 @@ describe Capybara::DSL do
       @session = Class.new { include Capybara::DSL }.new
     end
 
-    it_should_behave_like "session"
-    it_should_behave_like "session without javascript support"
-
     it "should be possible to include it in another class" do
       klass = Class.new do
         include Capybara::DSL
@@ -249,5 +265,4 @@ describe Capybara::DSL do
       foo.using_wait_time(6)
     end
   end
-
 end

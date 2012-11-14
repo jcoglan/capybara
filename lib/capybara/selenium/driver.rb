@@ -2,13 +2,11 @@ require 'selenium-webdriver'
 
 class Capybara::Selenium::Driver < Capybara::Driver::Base
   DEFAULT_OPTIONS = {
-    :resynchronize => false,
-    :resynchronization_timeout => 10,
     :browser => :firefox
   }
-  SPECIAL_OPTIONS = [:browser, :resynchronize, :resynchronization_timeout]
+  SPECIAL_OPTIONS = [:browser]
 
-  attr_reader :app, :rack_server, :options
+  attr_reader :app, :options
 
   def browser
     unless @browser
@@ -27,20 +25,20 @@ class Capybara::Selenium::Driver < Capybara::Driver::Base
 
   def initialize(app, options={})
     @app = app
+    @browser = nil
+    @exit_status = nil
     @options = DEFAULT_OPTIONS.merge(options)
-    @rack_server = Capybara::Server.new(@app)
-    @rack_server.boot if Capybara.run_server
   end
 
   def visit(path)
-    browser.navigate.to(url(path))
+    browser.navigate.to(path)
   end
 
   def source
     browser.page_source
   end
 
-  def body
+  def html
     browser.page_source
   end
 
@@ -53,18 +51,7 @@ class Capybara::Selenium::Driver < Capybara::Driver::Base
   end
 
   def wait?; true; end
-
-  def resynchronize
-    if options[:resynchronize]
-      load_wait_for_ajax_support
-      yield
-      Capybara.timeout(options[:resynchronization_timeout], self, "failed to resynchronize, ajax request timed out") do
-        evaluate_script("!window.capybaraRequestsOutstanding")
-      end
-    else
-      yield
-    end
-  end
+  def needs_server?; true; end
 
   def execute_script(script)
     browser.execute_script script
@@ -74,12 +61,15 @@ class Capybara::Selenium::Driver < Capybara::Driver::Base
     browser.execute_script "return #{script}"
   end
 
+  def save_screenshot(path, options={})
+    browser.save_screenshot(path)
+  end
+
   def reset!
     # Use instance variable directly so we avoid starting the browser just to reset the session
     if @browser
-      begin
-        @browser.manage.delete_all_cookies
-      rescue Selenium::WebDriver::Error::UnhandledError => e
+      begin @browser.manage.delete_all_cookies
+      rescue Selenium::WebDriver::Error::UnhandledError
         # delete_all_cookies fails when we've previously gone
         # to about:blank, so we rescue this error and do nothing
         # instead.
@@ -92,6 +82,7 @@ class Capybara::Selenium::Driver < Capybara::Driver::Base
     old_window = browser.window_handle
     browser.switch_to.frame(frame_id)
     yield
+  ensure
     browser.switch_to.window old_window
   end
 
@@ -122,42 +113,6 @@ class Capybara::Selenium::Driver < Capybara::Driver::Base
   end
 
   def invalid_element_errors
-    [Selenium::WebDriver::Error::ObsoleteElementError]
+    [Selenium::WebDriver::Error::StaleElementReferenceError, Selenium::WebDriver::Error::UnhandledError, Selenium::WebDriver::Error::ElementNotVisibleError]
   end
-
-private
-
-  def load_wait_for_ajax_support
-    browser.execute_script <<-JS
-      window.capybaraRequestsOutstanding = 0;
-      (function() { // Overriding XMLHttpRequest
-          var oldXHR = window.XMLHttpRequest;
-
-          function newXHR() {
-              var realXHR = new oldXHR();
-
-              window.capybaraRequestsOutstanding++;
-              realXHR.addEventListener("readystatechange", function() {
-                  if( realXHR.readyState == 4 ) {
-                    setTimeout( function() {
-                      window.capybaraRequestsOutstanding--;
-                      if(window.capybaraRequestsOutstanding < 0) {
-                        window.capybaraRequestsOutstanding = 0;
-                      }
-                    }, 500 );
-                  }
-              }, false);
-
-              return realXHR;
-          }
-
-          window.XMLHttpRequest = newXHR;
-      })();
-    JS
-  end
-
-  def url(path)
-    rack_server.url(path)
-  end
-
 end

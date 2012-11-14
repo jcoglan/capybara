@@ -13,11 +13,9 @@ Gem::Specification.new do |s|
   s.email = ["jonas.nicklas@gmail.com"]
   s.description = "Capybara is an integration testing tool for rack based web applications. It simulates how a user would interact with a website"
 
-  s.files = Dir.glob("{lib,spec}/**/*") + %w(README.rdoc History.txt)
-  s.extra_rdoc_files = ["README.rdoc"]
+  s.files = Dir.glob("{lib,spec}/**/*") + %w(README.md History.md License.txt)
 
   s.homepage = "http://github.com/jnicklas/capybara"
-  s.rdoc_options = ["--main", "README.rdoc"]
   s.require_paths = ["lib"]
   s.rubygems_version = "1.3.6"
   s.summary = "Capybara aims to simplify the process of integration testing Rack applications, such as Rails, Sinatra or Merb"
@@ -27,12 +25,13 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency("selenium-webdriver", ["~> 2.0"])
   s.add_runtime_dependency("rack", [">= 1.0.0"])
   s.add_runtime_dependency("rack-test", [">= 0.5.4"])
-  s.add_runtime_dependency("xpath", ["~> 0.1.4"])
+  s.add_runtime_dependency("xpath", ["~> 1.0.0"])
 
   s.add_development_dependency("sinatra", [">= 0.9.4"])
-  s.add_development_dependency("rspec", [">= 2.0.0"])
-  s.add_development_dependency("launchy", ["~> 2.0.4"])
+  s.add_development_dependency("rspec", [">= 2.2.0"])
+  s.add_development_dependency("launchy", [">= 2.0.4"])
   s.add_development_dependency("yard", [">= 0.5.8"])
   s.add_development_dependency("fuubar", [">= 0.0.1"])
-  s.add_development_dependency("cucumber", [">= 0.10"])
+  s.add_development_dependency("cucumber", [">= 0.10.5"])
+  s.add_development_dependency("rake")
 end

@@ -24,7 +24,7 @@ module Capybara
       # @raise  [Capybara::ElementNotFound]   If the element can't be found before time expires
       #
       def find(*args)
-        wait_until { first(*args) or raise_find_error(*args) }
+        synchronize { all(*args).find! }.tap(&:allow_reload!)
       end
 
       ##
@@ -35,7 +35,7 @@ module Capybara
       # @return [Capybara::Element]   The found element
       #
       def find_field(locator)
-        find(:xpath, XPath::HTML.field(locator))
+        find(:field, locator)
       end
       alias_method :field_labeled, :find_field
 
@@ -47,29 +47,29 @@ module Capybara
       # @return [Capybara::Element]   The found element
       #
       def find_link(locator)
-        find(:xpath, XPath::HTML.link(locator))
+        find(:link, locator)
       end
 
       ##
       #
-      # Find a button on the page. The link can be found by its id, name or value.
+      # Find a button on the page. The button can be found by its id, name or value.
       #
       # @param [String] locator       Which button to find
       # @return [Capybara::Element]   The found element
       #
       def find_button(locator)
-        find(:xpath, XPath::HTML.button(locator))
+        find(:button, locator)
       end
 
       ##
       #
       # Find a element on the page, given its id.
       #
-      # @param [String] locator       Which element to find
+      # @param [String] id            Which element to find
       # @return [Capybara::Element]   The found element
       #
       def find_by_id(id)
-        find(:css, "##{id}")
+        find(:id, id)
       end
 
       ##
@@ -99,20 +99,23 @@ module Capybara
       #     page.all('a', :text => 'Home')
       #     page.all('#menu li', :visible => true)
       #
-      # @param [:css, :xpath, String] kind_or_locator     Either the kind of selector or the selector itself
-      # @param [String] locator                           The selector
-      # @param [Hash{Symbol => Object}] options           Additional options
-      # @option options [String, Regexp] text             Only find elements which contain this text or match this regexp
-      # @option options [Boolean] visible                 Only find elements that are visible on the page
-      # @return [Capybara::Element]                       The found elements
+      # @overload all([kind], locator, options)
+      #   @param [:css, :xpath] kind                 The type of selector
+      #   @param [String] locator                    The selector
+      #   @option options [String, Regexp] text      Only find elements which contain this text or match this regexp
+      #   @option options [Boolean] visible          Only find elements that are visible on the page. Setting this to false
+      #                                              (the default, unless Capybara.ignore_hidden_elements = true), finds
+      #                                              invisible _and_ visible elements.
+      # @return [Array[Capybara::Element]]           The found elements
       #
       def all(*args)
-        options = extract_normalized_options(args)
-
-        selector = Capybara::Selector.normalize(*args)
-        selector.xpaths.
-          map    { |path| find_in_base(selector, path) }.flatten.
-          select { |node| matches_options(node, options) }
+        query = Capybara::Query.new(*args)
+        elements = synchronize do
+          base.find(query.xpath).map do |node|
+            Capybara::Node::Element.new(session, node, self, query)
+          end
+        end
+        Capybara::Result.new(elements, query)
       end
 
       ##
@@ -120,77 +123,14 @@ module Capybara
       # Find the first element on the page matching the given selector
       # and options, or nil if no element matches.
       #
-      # When only the first matching element is needed, this method can
-      # be faster than all(*args).first.
-      #
-      # @param [:css, :xpath, String] kind_or_locator     Either the kind of selector or the selector itself
-      # @param [String] locator                           The selector
-      # @param [Hash{Symbol => Object}] options           Additional options; see {all}
-      # @return Capybara::Element                         The found element
+      # @overload first([kind], locator, options)
+      #   @param [:css, :xpath] kind                 The type of selector
+      #   @param [String] locator                    The selector
+      #   @param [Hash] options                      Additional options; see {all}
+      # @return [Capybara::Element]                  The found element or nil
       #
       def first(*args)
-        options = extract_normalized_options(args)
-        found_elements = []
-
-        selector = Capybara::Selector.normalize(*args)
-        selector.xpaths.each do |path|
-          find_in_base(selector, path).each do |node|
-            if matches_options(node, options)
-              found_elements << node
-              return found_elements.last if not Capybara.prefer_visible_elements or node.visible?
-            end
-          end
-        end
-        found_elements.first
-      end
-
-    protected
-
-      def raise_find_error(*args)
-        options = extract_normalized_options(args)
-        normalized = Capybara::Selector.normalize(*args)
-        message = options[:message] || "Unable to find #{normalized.name} #{normalized.locator.inspect}"
-        message = normalized.failure_message.call(self, normalized) if normalized.failure_message
-        raise Capybara::ElementNotFound, message
-      end
-
-      def find_in_base(selector, xpath)
-        base.find(xpath).map do |node|
-          Capybara::Node::Element.new(session, node, self, selector)
-        end
-      end
-
-      def extract_normalized_options(args)
-        options = if args.last.is_a?(Hash) then args.pop.dup else {} end
-
-        if text = options[:text]
-          options[:text] = Regexp.escape(text) unless text.kind_of?(Regexp)
-        end
-
-        if !options.has_key?(:visible)
-          options[:visible] = Capybara.ignore_hidden_elements
-        end
-
-        if selected = options[:selected]
-          options[:selected] = [selected].flatten
-        end
-
-        options
-      end
-
-      def matches_options(node, options)
-        return false if options[:text]      and not node.text.match(options[:text])
-        return false if options[:visible]   and not node.visible?
-        return false if options[:with]      and not node.value == options[:with]
-        return false if options[:checked]   and not node.checked?
-        return false if options[:unchecked] and node.checked?
-        return false if options[:selected]  and not has_selected_options?(node, options[:selected])
-        true
-      end
-
-      def has_selected_options?(node, expected)
-        actual = node.all(:xpath, './/option').select { |option| option.selected? }.map { |option| option.text }
-        (expected - actual).empty?
+        all(*args).first
       end
     end
   end

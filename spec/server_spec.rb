@@ -12,9 +12,19 @@ describe Capybara::Server do
   end
 
   it "should do nothing when no server given" do
-    running do
+    expect do
       @server = Capybara::Server.new(nil).boot
-    end.should_not raise_error
+    end.not_to raise_error
+  end
+
+  it "should bind to the specified host" do
+    Capybara.server_host = '0.0.0.0'
+
+    app = proc { |env| [200, {}, "Hello Server!"]}
+    server = Capybara::Server.new(app).boot
+    server.host.should == '0.0.0.0'
+
+    Capybara.server_host = nil
   end
 
   it "should use specified port" do
@@ -24,6 +34,16 @@ describe Capybara::Server do
     @server = Capybara::Server.new(@app).boot
 
     @res = Net::HTTP.start(@server.host, 22789) { |http| http.get('/') }
+    @res.body.should include('Hello Server')
+
+    Capybara.server_port = nil
+  end
+
+  it "should use given port" do
+    @app = proc { |env| [200, {}, "Hello Server!"]}
+    @server = Capybara::Server.new(@app, 22790).boot
+
+    @res = Net::HTTP.start(@server.host, 22790) { |http| http.get('/') }
     @res.body.should include('Hello Server')
 
     Capybara.server_port = nil
@@ -62,28 +82,20 @@ describe Capybara::Server do
     @server2a.port.should == @server2b.port
   end
 
-  it "should wait specified time for the app to boot" do
-    pending 'this test does not work: https://groups.google.com/d/msg/ruby-capybara/QrSKTbjh5rY/egvcVFYiWZMJ'
+  it "should raise server errors when the server errors before the timeout" do
+    begin
+      Capybara.server do
+        sleep 0.1
+        raise 'kaboom'
+      end
 
-    @slow_app = proc { |env| sleep(1); [200, {}, "Hello Slow Server!"] }
-
-    Capybara.server_boot_timeout = 1.5
-    @server = Capybara::Server.new(@slow_app).boot
-
-    @res = Net::HTTP.start(@server.host, @server.port) { |http| http.get('/') }
-    @res.body.should include('Hello Slow Server')
+      proc do
+        Capybara::Server.new(proc {|e|}).boot
+      end.should raise_error(RuntimeError, 'kaboom')
+    ensure
+      # TODO refactor out the defaults so it's reliant on unset state instead of
+      # a one-time call in capybara.rb
+      Capybara.server {|app, port| Capybara.run_default_server(app, port)}
+    end
   end
-
-  it "should raise an exception if boot timeout is exceeded" do
-    pending 'this test does not work: https://groups.google.com/d/msg/ruby-capybara/QrSKTbjh5rY/egvcVFYiWZMJ'
-
-    @slow_app = proc { |env| sleep(1); [200, {}, "Hello Slow Server!"] }
-
-    Capybara.server_boot_timeout = 0.5
-    server = Capybara::Server.new(@slow_app)
-    server.stub(:exit).and_return(:timeout)
-    server.stub(:puts)
-    server.boot.should == :timeout
-  end
-
 end

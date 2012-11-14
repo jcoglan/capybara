@@ -18,48 +18,45 @@ class Capybara::RackTest::Browser
 
   def visit(path, attributes = {})
     reset_host!
-    process(:get, path, attributes)
-    follow_redirects!
+    process_and_follow_redirects(:get, path, attributes)
   end
 
   def submit(method, path, attributes)
     path = request_path if not path or path.empty?
-    process(method, path, attributes)
-    follow_redirects!
+    process_and_follow_redirects(method, path, attributes, {'HTTP_REFERER' => current_url})
   end
 
   def follow(method, path, attributes = {})
     return if path.gsub(/^#{request_path}/, '').start_with?('#')
-    process(method, path, attributes)
-    follow_redirects!
+    process_and_follow_redirects(method, path, attributes, {'HTTP_REFERER' => current_url})
   end
 
-  def follow_redirects!
-    5.times do
-      process(:get, last_response["Location"]) if last_response.redirect?
-    end
-    raise Capybara::InfiniteRedirectError, "redirected more than 5 times, check for infinite redirects." if last_response.redirect?
-  end
-
-  def process(method, path, attributes = {})
-    new_uri = URI.parse(path)
-    current_uri = URI.parse(current_url)
-
-    if new_uri.host
-      @current_host = new_uri.scheme + '://' + new_uri.host
-    end
-
-    if new_uri.relative?
-      if path.start_with?('?')
-        path = request_path + path
-      elsif not path.start_with?('/')
-        path = request_path.sub(%r(/[^/]*$), '/') + path
+  def process_and_follow_redirects(method, path, attributes = {}, env = {})
+    process(method, path, attributes, env)
+    if driver.follow_redirects?
+      driver.redirect_limit.times do
+        process(:get, last_response["Location"], {}, env) if last_response.redirect?
       end
-      path = current_host + path
+      raise Capybara::InfiniteRedirectError, "redirected more than #{driver.redirect_limit} times, check for infinite redirects." if last_response.redirect?
     end
+  end
+
+  def process(method, path, attributes = {}, env = {})
+    new_uri = URI.parse(path)
+    method.downcase! unless method.is_a? Symbol
+
+    new_uri.path = request_path if path.start_with?("?")
+    new_uri.path = request_path.sub(%r(/[^/]*$), '/') + new_uri.path unless new_uri.path.start_with?('/')
+    new_uri.scheme ||= @current_scheme
+    new_uri.host ||= @current_host
+    new_uri.port ||= @current_port unless new_uri.default_port == @current_port
+
+    @current_scheme = new_uri.scheme
+    @current_host = new_uri.host
+    @current_port = new_uri.port
 
     reset_cache!
-    send(method, path, attributes, env)
+    send(method, new_uri.to_s, attributes, env.merge(options[:headers] || {}))
   end
 
   def current_url
@@ -69,14 +66,17 @@ class Capybara::RackTest::Browser
   end
 
   def reset_host!
-    @current_host = (Capybara.app_host || Capybara.default_host)
+    uri = URI.parse(Capybara.app_host || Capybara.default_host)
+    @current_scheme = uri.scheme
+    @current_host = uri.host
+    @current_port = uri.port
   end
 
   def reset_cache!
     @dom = nil
   end
 
-  def body
+  def html
     dom.to_xml
   end
 
@@ -91,7 +91,7 @@ class Capybara::RackTest::Browser
   def source
     last_response.body
   rescue Rack::Test::Error
-    nil
+    ""
   end
 
 protected
@@ -106,16 +106,4 @@ protected
   rescue Rack::Test::Error
     ""
   end
-
-  def env
-    env = {}
-    begin
-      env["HTTP_REFERER"] = last_request.url
-    rescue Rack::Test::Error
-      # no request yet
-    end
-    env.merge!(options[:headers]) if options[:headers]
-    env
-  end
-
 end

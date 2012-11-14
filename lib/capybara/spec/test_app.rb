@@ -3,8 +3,14 @@ require 'rack'
 require 'yaml'
 
 class TestApp < Sinatra::Base
+  class TestAppError < StandardError; end
+
   set :root, File.dirname(__FILE__)
   set :static, true
+  set :raise_errors, true
+  set :show_exceptions, false
+
+  # Also check lib/capybara/spec/views/*.erb for pages not listed here
 
   get '/' do
     'Hello world! <a href="with_html">Relative</a>'
@@ -22,8 +28,22 @@ class TestApp < Sinatra::Base
     redirect '/landed'
   end
 
+  get '/referer_base' do
+    '<a href="/get_referer">direct link</a>' +
+    '<a href="/redirect_to_get_referer">link via redirect</a>' +
+    '<form action="/get_referer" method="get"><input type="submit"></form>'
+  end
+
+  get '/redirect_to_get_referer' do
+    redirect '/get_referer'
+  end
+
+  get '/get_referer' do
+    request.referer.nil? ? "No referer" : "Got referer: #{request.referer}"
+  end
+
   get '/host' do
-    "Current host is #{request.scheme}://#{request.host}"
+    "Current host is #{request.scheme}://#{request.host}:#{request.port}"
   end
 
   get '/redirect/:times/times' do
@@ -72,7 +92,7 @@ class TestApp < Sinatra::Base
   end
 
   get '/redirect_secure' do
-    redirect "https://#{request.host}/host"
+    redirect "https://#{request.host}:#{request.port}/host"
   end
 
   get '/slow_response' do
@@ -96,6 +116,10 @@ class TestApp < Sinatra::Base
 
   get '/get_header_via_redirect' do
     redirect '/get_header'
+  end
+
+  get '/error' do
+    raise TestAppError, "some error"
   end
 
   get '/:view' do |view|
@@ -127,9 +151,11 @@ class TestApp < Sinatra::Base
 
   post '/upload_multiple' do
     begin
-      buffer = []
-      buffer << "Content-type: #{params[:form][:multiple_documents][0][:type]}"
-      buffer << "File content: #{params[:form][:multiple_documents][0][:tempfile].read}"
+      buffer = ["#{params[:form][:multiple_documents].size}"]
+      params[:form][:multiple_documents].each do |doc|
+        buffer << "Content-type: #{doc[:type]}"
+        buffer << "File content: #{doc[:tempfile].read}"
+      end
       buffer.join(' | ')
     rescue
       'No files uploaded'

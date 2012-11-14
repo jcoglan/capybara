@@ -74,7 +74,7 @@ module Capybara
       #
       def value
         if tag_name == 'textarea'
-          native.content
+          native.content.sub(/\A\n/, '')
         elsif tag_name == 'select'
           if native['multiple'] == 'multiple'
             native.xpath(".//option[@selected='selected']").map { |option| option[:value] || option.content  }
@@ -95,7 +95,7 @@ module Capybara
       # @return [Boolean]     Whether the element is visible
       #
       def visible?
-        native.xpath("./ancestor-or-self::*[contains(@style, 'display:none') or contains(@style, 'display: none')]").size == 0
+        native.xpath("./ancestor-or-self::*[contains(@style, 'display:none') or contains(@style, 'display: none') or name()='script' or name()='head']").size == 0
       end
 
       ##
@@ -118,14 +118,24 @@ module Capybara
         native[:selected]
       end
 
-    protected
-
-      def find_in_base(selector, xpath)
-        native.xpath(xpath).map { |node| self.class.new(node) }
+      def synchronize
+        yield # simple nodes don't need to wait
       end
 
-      def wait_until
+      def allow_reload!
+        # no op
+      end
+
+      def unsynchronized
         yield # simple nodes don't need to wait
+      end
+
+      def all(*args)
+        query = Capybara::Query.new(*args)
+        elements = native.xpath(query.xpath).map do |node|
+          self.class.new(node)
+        end
+        Capybara::Result.new(elements, query)
       end
     end
   end

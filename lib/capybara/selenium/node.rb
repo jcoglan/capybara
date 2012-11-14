@@ -1,6 +1,7 @@
 class Capybara::Selenium::Node < Capybara::Driver::Node
   def text
-    native.text
+    # Selenium doesn't normalize Unicode whitespace.
+    Capybara::Helpers.normalize_whitespace(native.text)
   end
 
   def [](name)
@@ -18,39 +19,40 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
   end
 
   def set(value)
+    tag_name = self.tag_name
+    type = self[:type]
+    if (Array === value) && !self[:multiple]
+      raise ArgumentError.new "Value cannot be an Array when 'multiple' attribute is not present. Not a #{value.class}"
+    end
     if tag_name == 'input' and type == 'radio'
       click
     elsif tag_name == 'input' and type == 'checkbox'
       click if value ^ native.attribute('checked').to_s.eql?("true")
     elsif tag_name == 'input' and type == 'file'
-      resynchronize do
-        native.send_keys(value.to_s)
-      end
+      path_names = value.to_s.empty? ? [] : value
+      native.send_keys(*path_names)
     elsif tag_name == 'textarea' or tag_name == 'input'
-      resynchronize do
-        native.clear
-        native.send_keys(value.to_s)
-      end
+      native.send_keys(("\b" * native[:value].size) + value.to_s)
     end
   end
 
   def select_option
-    resynchronize { native.click } unless selected?
+    native.click unless selected?
   end
 
   def unselect_option
     if select_node['multiple'] != 'multiple' and select_node['multiple'] != 'true'
       raise Capybara::UnselectNotAllowed, "Cannot unselect option from single select box."
     end
-    resynchronize { native.click } if selected?
+    native.click if selected?
   end
 
   def click
-    resynchronize { native.click }
+    native.click
   end
 
   def drag_to(element)
-    resynchronize { driver.browser.action.drag_and_drop(native, element.native).perform }
+    driver.browser.action.drag_and_drop(native, element.native).perform
   end
 
   def tag_name
@@ -75,17 +77,8 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
 
 private
 
-  def resynchronize
-    driver.resynchronize { yield }
-  end
-
   # a reference to the select node if this is an option node
   def select_node
     find('./ancestor::select').first
   end
-
-  def type
-    self[:type]
-  end
-
 end
