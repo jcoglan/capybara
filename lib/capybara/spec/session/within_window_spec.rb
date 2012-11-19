@@ -4,10 +4,10 @@ Capybara::SpecHelper.spec '#within_window', :requires => [:windows] do
   end
   after(:each) do
     @session.within_window("firstPopup") do
-      @session.evaluate_script('window.close()')
+      @session.execute_script('window.close()')
     end
     @session.within_window("secondPopup") do
-      @session.evaluate_script('window.close()')
+      @session.execute_script('window.close()')
     end
   end
 
