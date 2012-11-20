@@ -74,7 +74,7 @@ module Capybara
       #
       def value
         if tag_name == 'textarea'
-          native.content
+          native.content.sub(/\A\n/, '')
         elsif tag_name == 'select'
           if native['multiple'] == 'multiple'
             native.xpath(".//option[@selected='selected']").map { |option| option[:value] || option.content  }
@@ -116,6 +116,14 @@ module Capybara
       #
       def selected?
         native[:selected]
+      end
+
+      def allow_reload!
+        # no op
+      end
+
+      def without_wait
+        yield
       end
 
     protected

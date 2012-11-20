@@ -24,7 +24,7 @@ module Capybara
       # @raise  [Capybara::ElementNotFound]   If the element can't be found before time expires
       #
       def find(*args)
-        wait_until { first(*args) or raise_find_error(*args) }
+        wait_until { first(*args) or raise_find_error(*args) }.tap(&:allow_reload!)
       end
 
       ##
@@ -107,9 +107,9 @@ module Capybara
       # @return [Capybara::Element]                       The found elements
       #
       def all(*args)
+        selector = Capybara::Selector.normalize(*args)
         options = extract_normalized_options(args)
 
-        selector = Capybara::Selector.normalize(*args)
         selector.xpaths.
           map    { |path| find_in_base(selector, path) }.flatten.
           select { |node| matches_options(node, options) }
@@ -129,10 +129,10 @@ module Capybara
       # @return Capybara::Element                         The found element
       #
       def first(*args)
+        selector = Capybara::Selector.normalize(*args)
         options = extract_normalized_options(args)
         found_elements = []
 
-        selector = Capybara::Selector.normalize(*args)
         selector.xpaths.each do |path|
           find_in_base(selector, path).each do |node|
             if matches_options(node, options)
@@ -179,13 +179,15 @@ module Capybara
       end
 
       def matches_options(node, options)
-        return false if options[:text]      and not node.text.match(options[:text])
-        return false if options[:visible]   and not node.visible?
-        return false if options[:with]      and not node.value == options[:with]
-        return false if options[:checked]   and not node.checked?
-        return false if options[:unchecked] and node.checked?
-        return false if options[:selected]  and not has_selected_options?(node, options[:selected])
-        true
+        node.without_wait do
+          return false if options[:text]      and not node.text.match(options[:text])
+          return false if options[:visible]   and not node.visible?
+          return false if options[:with]      and not node.value == options[:with]
+          return false if options[:checked]   and not node.checked?
+          return false if options[:unchecked] and node.checked?
+          return false if options[:selected]  and not has_selected_options?(node, options[:selected])
+          true
+        end
       end
 
       def has_selected_options?(node, expected)

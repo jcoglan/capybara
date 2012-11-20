@@ -28,6 +28,10 @@ module Capybara
         @selector = selector
       end
 
+      def allow_reload!
+        @allow_reload = true
+      end
+
       ##
       #
       # @return [Object]    The native element from the driver, this allows access to driver specific methods
@@ -186,8 +190,10 @@ module Capybara
       end
 
       def reload
-        reloaded = parent.reload.first(@selector.name, @selector.locator, @selector.options)
-        @base = reloaded.base if reloaded
+        if @allow_reload
+          reloaded = parent.reload.first(@selector.name, @selector.locator, @selector.options)
+          @base = reloaded.base if reloaded
+        end
         self
       end
 
