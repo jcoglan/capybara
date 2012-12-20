@@ -1,3 +1,24 @@
+# master
+
+### Changed
+
+* Move the RackTest driver override with the `:respect_data_method` option
+  enabled from capybara/rspec to capybara/rails, so that it is enabled in
+  Rails projects that don't use RSpec. [Carlos Antonio da Silva]
+* Source is now an alias for `body`. RackTest no longer returns modifications
+  to `body`. This basically codifies the behaviour which we've had for a while
+  anyway, and should have minimal impact for end users. It is important to
+  driver authors though. [Jonas Nicklas]
+
+### Fixed
+
+* Visiting relative URLs when `app_host` is set and no server is running works
+  as expected. [Jonas Nicklas]
+* `fill_in` works properly under Selenium again when the caret is not at the
+  end of the field before the method is called. [Douwe Maan, Jonas Nicklas, Jari
+  Bakken]
+* `attach_file` can once again be given a Pathname [Jake Goulding]
+
 # Version 2.0.0
 
 Release date: 2012-11-05

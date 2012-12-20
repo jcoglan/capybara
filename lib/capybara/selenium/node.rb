@@ -32,7 +32,8 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
       path_names = value.to_s.empty? ? [] : value
       native.send_keys(*path_names)
     elsif tag_name == 'textarea' or tag_name == 'input'
-      native.send_keys(("\b" * native[:value].size) + value.to_s)
+      driver.browser.execute_script "arguments[0].value = ''", native
+      native.send_keys(value.to_s)
     end
   end
 
@@ -73,6 +74,10 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
 
   def find(locator)
     native.find_elements(:xpath, locator).map { |n| self.class.new(driver, n) }
+  end
+
+  def ==(other)
+    native == other.native
   end
 
 private

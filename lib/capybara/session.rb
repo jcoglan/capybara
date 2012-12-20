@@ -105,15 +105,8 @@ module Capybara
     def html
       driver.html
     end
-
-    ##
-    #
-    # @return [String] HTML source of the document, before being modified by JavaScript.
-    #
-    def source
-      driver.source
-    end
-    alias_method :body, :source
+    alias_method :body, :html
+    alias_method :source, :html
 
     ##
     #
@@ -170,10 +163,12 @@ module Capybara
     def visit(url)
       @touched = true
 
+      if url !~ /^http/ and Capybara.app_host
+        url = Capybara.app_host + url.to_s
+      end
+
       if @server
-        unless url =~ /^http/
-          url = (Capybara.app_host || "http://#{@server.host}:#{@server.port}") + url.to_s
-        end
+        url = "http://#{@server.host}:#{@server.port}" + url.to_s unless url =~ /^http/
 
         if Capybara.always_include_port
           uri = URI.parse(url)
