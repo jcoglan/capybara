@@ -12,9 +12,7 @@ module Capybara
   class FileNotFound < CapybaraError; end
   class UnselectNotAllowed < CapybaraError; end
   class NotSupportedByDriverError < CapybaraError; end
-  class TimeoutError < CapybaraError; end
-  class LocateHiddenElementError < CapybaraError; end
-  class InfiniteRedirectError < TimeoutError; end
+  class InfiniteRedirectError < CapybaraError; end
 
   class << self
     attr_accessor :asset_root, :app_host, :run_server, :default_host, :always_include_port
@@ -175,14 +173,8 @@ module Capybara
     # @param [Fixnum] port              The port to run the application on
     #
     def run_default_server(app, port)
-      begin
-        require 'rack/handler/thin'
-        Thin::Logging.silent = true
-        Rack::Handler::Thin.run(app, :Port => port)
-      rescue LoadError
-        require 'rack/handler/webrick'
-        Rack::Handler::WEBrick.run(app, :Port => port, :AccessLog => [], :Logger => WEBrick::Log::new(nil, 0))
-      end
+      require 'rack/handler/webrick'
+      Rack::Handler::WEBrick.run(app, :Port => port, :AccessLog => [], :Logger => WEBrick::Log::new(nil, 0))
     end
 
     ##

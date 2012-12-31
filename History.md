@@ -1,14 +1,37 @@
-# master
+# Version 2.0.2
+
+Release date: 2012-12-31
+
+### Changed
+
+* Capybara no longer uses thin as a server if it is available, due to thread
+  safety issues. Now Capybara always defaults to WEBrick. [Jonas Nicklas]
+
+### Fixed
+
+* Suppress several warnings [Kouhei Sutou]
+* Fix default host becoming nil [Brian Cardarella]
+* Fix regression in 2.0.1 which caused node comparisons with non node objects
+  to throw an exception [Kouhei Sotou]
+* A few changes to the specs, only relevant to driver authors [Jonas Nicklas]
+* Encoding error under JRuby [Piotr Krawiec]
+* Ruby 2 encoding fix [Murahashi Sanemat Kenichi]
+* Catch correct exception on server timeout [Jonathan del Strother]
+
+# Version 2.0.1
+
+Release date: 2012-12-21
 
 ### Changed
 
 * Move the RackTest driver override with the `:respect_data_method` option
   enabled from capybara/rspec to capybara/rails, so that it is enabled in
   Rails projects that don't use RSpec. [Carlos Antonio da Silva]
-* Source is now an alias for `body`. RackTest no longer returns modifications
-  to `body`. This basically codifies the behaviour which we've had for a while
-  anyway, and should have minimal impact for end users. It is important to
-  driver authors though. [Jonas Nicklas]
+* `source` is now an alias for `html`. RackTest no longer returns modifications
+  to `html`. This basically codifies the behaviour which we've had for a while
+  anyway, and should have minimal impact for end users. For driver authors, it
+  means that they only have to implement `html`, and not `source`. [Jonas
+  Nicklas]
 
 ### Fixed
 
@@ -130,6 +153,14 @@ Release date: 2012-11-05
   as expected. [Jonas Nicklas]
 * `:count => 0` now works as expected [Jarl Friis]
 * Fixed race conditions on negative assertions when removing nodes [Jonas Nicklas]
+
+# Version 1.1.4
+
+Release date: 2012-11-28
+
+### Fixed
+
+* Fix more race conditions on negative assertions. [Jonas Nicklas]
 
 # Version 1.1.3
 
