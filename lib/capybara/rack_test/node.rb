@@ -1,5 +1,9 @@
 class Capybara::RackTest::Node < Capybara::Driver::Node
-  def text
+  def all_text
+    Capybara::Helpers.normalize_whitespace(native.text)
+  end
+
+  def visible_text
     Capybara::Helpers.normalize_whitespace(unnormalized_text)
   end
 
@@ -15,42 +19,21 @@ class Capybara::RackTest::Node < Capybara::Driver::Node
     if (Array === value) && !self[:multiple]
       raise ArgumentError.new "Value cannot be an Array when 'multiple' attribute is not present. Not a #{value.class}"
     end
-    if tag_name == 'input' and type == 'radio'
-      other_radios_xpath = XPath.generate { |x| x.anywhere(:input)[x.attr(:name).equals(self[:name])] }.to_s
-      driver.dom.xpath(other_radios_xpath).each { |node| node.remove_attribute("checked") }
-      native['checked'] = 'checked'
-    elsif tag_name == 'input' and type == 'checkbox'
-      if value && !native['checked']
-        native['checked'] = 'checked'
-      elsif !value && native['checked']
-        native.remove_attribute('checked')
-      end
-    elsif tag_name == 'input'
-      if (type == 'text' || type == 'password') && self[:maxlength] &&
-        !self[:maxlength].empty?
-        # Browser behavior for maxlength="0" is inconsistent, so we stick with
-        # Firefox, allowing no input
-        value = value[0...self[:maxlength].to_i]
-      end
-      if Array === value #Assert multiple attribute is present
-        value.each do |v|
-          new_native = native.clone
-          new_native.remove_attribute('value')
-          native.add_next_sibling(new_native)
-          new_native['value'] = v.to_s
-        end
-        native.remove
-      else
-        native['value'] = value.to_s
-      end
-    elsif tag_name == "textarea"
+
+    if radio?
+      set_radio(value)
+    elsif checkbox?
+      set_checkbox(value)
+    elsif input_field?
+      set_input(value)
+    elsif textarea?
       native.content = value.to_s
     end
   end
 
   def select_option
     if select_node['multiple'] != 'multiple'
-      select_node.find(".//option[@selected]").each { |node| node.native.remove_attribute("selected") }
+      select_node.find_xpath(".//option[@selected]").each { |node| node.native.remove_attribute("selected") }
     end
     native["selected"] = 'selected'
   end
@@ -89,14 +72,22 @@ class Capybara::RackTest::Node < Capybara::Driver::Node
     string_node.selected?
   end
 
+  def disabled?
+    string_node.disabled?
+  end
+
   def path
     native.path
   end
 
-  def find(locator)
+  def find_xpath(locator)
     native.xpath(locator).map { |n| self.class.new(driver, n) }
   end
-
+  
+  def find_css(locator)    
+    native.css(locator, Capybara::RackTest::CSSHandlers.new).map { |n| self.class.new(driver, n) }
+  end
+  
   def ==(other)
     native == other.native
   end
@@ -125,7 +116,7 @@ private
 
   # a reference to the select node if this is an option node
   def select_node
-    find('./ancestor::select').first
+    find_xpath('./ancestor::select').first
   end
 
   def type
@@ -133,6 +124,67 @@ private
   end
 
   def form
-    native.ancestors('form').first
+    if native[:form]
+      native.xpath("//form[@id='#{native[:form]}']").first
+    else
+      native.ancestors('form').first
+    end
+  end
+
+  def set_radio(value)
+    other_radios_xpath = XPath.generate { |x| x.anywhere(:input)[x.attr(:name).equals(self[:name])] }.to_s
+    driver.dom.xpath(other_radios_xpath).each { |node| node.remove_attribute("checked") }
+    native['checked'] = 'checked'
+  end
+
+  def set_checkbox(value)
+    if value && !native['checked']
+      native['checked'] = 'checked'
+    elsif !value && native['checked']
+      native.remove_attribute('checked')
+    end
+  end
+
+  def set_input(value)
+    if text_or_password? && attribute_is_not_blank?(:maxlength)
+      # Browser behavior for maxlength="0" is inconsistent, so we stick with
+      # Firefox, allowing no input
+      value = value[0...self[:maxlength].to_i]
+    end
+    if Array === value #Assert multiple attribute is present
+      value.each do |v|
+        new_native = native.clone
+        new_native.remove_attribute('value')
+        native.add_next_sibling(new_native)
+        new_native['value'] = v.to_s
+      end
+      native.remove
+    else
+      native['value'] = value.to_s
+    end
+  end
+
+  def attribute_is_not_blank?(attribute)
+    self[attribute] && !self[attribute].empty?
+  end
+
+  def checkbox?
+    input_field? && type == 'checkbox'
+  end
+
+  def input_field?
+    tag_name == 'input'
+  end
+
+  def radio?
+    input_field? && type == 'radio'
+  end
+
+  def textarea?
+    tag_name == "textarea"
+  end
+
+  def text_or_password?
+    input_field? && (type == 'text' || type == 'password')
   end
 end

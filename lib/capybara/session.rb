@@ -40,7 +40,8 @@ module Capybara
       :body, :html, :current_url, :current_host, :evaluate_script, :source,
       :visit, :within, :within_fieldset, :within_table, :within_frame,
       :within_window, :current_path, :save_page, :save_and_open_page,
-      :save_screenshot, :reset_session!, :response_headers, :status_code
+      :save_screenshot, :reset_session!, :response_headers, :status_code,
+      :title, :has_title?, :has_no_title?, :current_scope
     ]
     DSL_METHODS = NODE_METHODS + SESSION_METHODS
 
@@ -74,7 +75,7 @@ module Capybara
     def reset!
       driver.reset! if @touched
       @touched = false
-      raise @server.error if @server and @server.error
+      raise @server.error if Capybara.raise_server_errors and @server and @server.error
     ensure
       @server.reset_error! if @server
     end
@@ -135,6 +136,14 @@ module Capybara
     #
     def current_url
       driver.current_url
+    end
+
+    ##
+    #
+    # @return [String] Title of the current page
+    #
+    def title
+      driver.title
     end
 
     ##
@@ -243,13 +252,16 @@ module Capybara
 
     ##
     #
-    # Execute the given block within the given iframe given the id of that iframe. Only works on
-    # some drivers (e.g. Selenium)
+    # Execute the given block within the given iframe using given frame name or index.
+    # May be supported by not all drivers. Drivers that support it, may provide additional options.
     #
-    # @param [String] frame_id   Id of the frame
+    # @overload within_frame(index)
+    #   @param [Integer] index         index of a frame
+    # @overload within_frame(name)
+    #   @param [String] name           name of a frame
     #
-    def within_frame(frame_id)
-      driver.within_frame(frame_id) do
+    def within_frame(frame_handle)
+      driver.within_frame(frame_handle) do
         yield
       end
     end
@@ -304,7 +316,7 @@ module Capybara
 
       FileUtils.mkdir_p(File.dirname(path))
 
-      File.open(path,'w') { |f| f.write(body) }
+      File.open(path,'w') { |f| f.write(Capybara::Helpers.inject_asset_host(body)) }
       path
     end
 
@@ -338,7 +350,7 @@ module Capybara
     NODE_METHODS.each do |method|
       define_method method do |*args, &block|
         @touched = true
-        current_node.send(method, *args, &block)
+        current_scope.send(method, *args, &block)
       end
     end
 
@@ -346,11 +358,33 @@ module Capybara
       %(#<Capybara::Session>)
     end
 
-  private
+    def has_title?(content)
+      document.synchronize do
+        unless title.match(Capybara::Helpers.to_regexp(content))
+          raise ExpectationNotMet
+        end
+      end
+      return true
+    rescue Capybara::ExpectationNotMet
+      return false
+    end
 
-    def current_node
+    def has_no_title?(content)
+      document.synchronize do
+        if title.match(Capybara::Helpers.to_regexp(content))
+          raise ExpectationNotMet
+        end
+      end
+      return true
+    rescue Capybara::ExpectationNotMet
+      return false
+    end
+
+    def current_scope
       scopes.last
     end
+
+  private
 
     def scopes
       @scopes ||= [document]

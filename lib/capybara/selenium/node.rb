@@ -1,7 +1,12 @@
 class Capybara::Selenium::Node < Capybara::Driver::Node
-  def text
+  def visible_text
     # Selenium doesn't normalize Unicode whitespace.
     Capybara::Helpers.normalize_whitespace(native.text)
+  end
+
+  def all_text
+    text = driver.browser.execute_script("return arguments[0].textContent", native)
+    Capybara::Helpers.normalize_whitespace(text)
   end
 
   def [](name)
@@ -52,6 +57,10 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
     native.click
   end
 
+  def hover
+    driver.browser.action.move_to(native).perform
+  end
+  
   def drag_to(element)
     driver.browser.action.drag_and_drop(native, element.native).perform
   end
@@ -70,12 +79,20 @@ class Capybara::Selenium::Node < Capybara::Driver::Node
     selected and selected != "false"
   end
 
-  alias :checked? :selected?
-
-  def find(locator)
-    native.find_elements(:xpath, locator).map { |n| self.class.new(driver, n) }
+  def disabled?
+    !native.enabled?
   end
 
+  alias :checked? :selected?
+
+  def find_xpath(locator)
+    native.find_elements(:xpath, locator).map { |n| self.class.new(driver, n) }
+  end
+  
+  def find_css(locator)
+    native.find_elements(:css, locator).map { |n| self.class.new(driver, n) }
+  end
+  
   def ==(other)
     native == other.native
   end
@@ -84,6 +101,6 @@ private
 
   # a reference to the select node if this is an option node
   def select_node
-    find('./ancestor::select').first
+    find_xpath('./ancestor::select').first
   end
 end

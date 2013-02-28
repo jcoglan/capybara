@@ -7,7 +7,11 @@ class Capybara::Driver::Base
     raise NotImplementedError
   end
 
-  def find(query)
+  def find_xpath(query)
+    raise NotImplementedError
+  end
+  
+  def find_css(query)
     raise NotImplementedError
   end
 
@@ -35,7 +39,7 @@ class Capybara::Driver::Base
     raise Capybara::NotSupportedByDriverError
   end
 
-  def within_frame(frame_id)
+  def within_frame(frame_handle)
     raise Capybara::NotSupportedByDriverError
   end
 

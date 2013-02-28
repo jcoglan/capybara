@@ -81,8 +81,17 @@ Capybara::SpecHelper.spec "node" do
     end
   end
 
+  describe "#disabled?" do
+    it "should extract disabled node" do
+      @session.visit('/form')
+      @session.find('//input[@id="customer_name"]').should be_disabled
+      @session.find('//input[@id="customer_email"]').should_not be_disabled
+    end
+  end
+
   describe "#visible?" do
     it "should extract node visibility" do
+      Capybara.ignore_hidden_elements = false
       @session.first('//a').should be_visible
 
       @session.find('//div[@id="hidden"]').should_not be_visible
@@ -135,6 +144,16 @@ Capybara::SpecHelper.spec "node" do
       target = @session.find('//div[@id="drop"]')
       element.drag_to(target)
       @session.find('//div[contains(., "Dropped!")]').should_not be_nil
+    end
+  end
+  
+  describe '#hover', :requires => [:hover] do  
+    it "should allow hovering on an element" do
+      pending "Selenium with firefox doesn't currently work with this (selenium with chrome does)" if @session.respond_to?(:mode) && @session.mode == :selenium && @session.driver.browser.browser == :firefox
+      @session.visit('/with_hover')
+      @session.find(:css,'.hidden_until_hover', :visible => false).should_not be_visible
+      @session.find(:css,'.wrapper').hover
+      @session.find(:css, '.hidden_until_hover', :visible => false).should be_visible
     end
   end
 

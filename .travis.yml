@@ -1,8 +1,7 @@
 language: ruby
 rvm:
-  - 1.9.2
   - 1.9.3
-  - ree
+  - 2.0.0
   - jruby-19mode
   - rbx-19mode
 gemfile:
@@ -15,15 +14,6 @@ matrix:
       rvm: rbx-19mode
     - gemfile: gemfiles/Gemfile.base-versions
       rvm: jruby-19mode
-  allow_failures:
-    - gemfile: Gemfile
-      rvm: rbx-19mode
-    - gemfile: Gemfile
-      rvm: jruby-19mode
-    - gemfile: Gemfile
-      rvm: ree
-    - gemfile: gemfiles/Gemfile.base-versions
-      rvm: ree
 before_script:
   - sh -e /etc/init.d/xvfb start
   - export DISPLAY=:99.0

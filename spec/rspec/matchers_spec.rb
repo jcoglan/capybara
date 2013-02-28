@@ -363,6 +363,15 @@ describe Capybara::RSpecMatchers do
           page.should have_text(/test/)
         end
 
+        it "can check for all text" do
+          page.should have_text(:all, 'Some of this text is hidden!')
+        end
+
+        it "can check for visible text" do
+          page.should have_text(:visible, 'Some of this text is')
+          page.should_not have_text(:visible, 'Some of this text is hidden!')
+        end
+
         it "fails if has_text? returns false" do
           expect do
             page.should have_text('No such Text')
@@ -409,6 +418,42 @@ describe Capybara::RSpecMatchers do
       expect do
         html.should have_link('No such Link')
       end.to raise_error(/expected to find link "No such Link"/)
+    end
+  end
+
+  describe "have_title matcher" do
+    it "gives proper description" do
+      have_title('Just a title').description.should == "have title \"Just a title\""
+    end
+
+    context "on a string" do
+      let(:html) { '<title>Just a title</title>' }
+
+      it "passes if there is such a title" do
+        html.should have_title('Just a title')
+      end
+
+      it "fails if there is no such title" do
+        expect do
+          html.should have_title('No such title')
+        end.to raise_error(/expected there to be title "No such title"/)
+      end
+    end
+
+    context "on a page or node" do
+      before do
+        visit('/with_js')
+      end
+
+      it "passes if there is such a title" do
+        page.should have_title('with_js')
+      end
+
+      it "fails if there is no such title" do
+        expect do
+          page.should have_title('No such title')
+        end.to raise_error(/expected there to be title "No such title"/)
+      end
     end
   end
 

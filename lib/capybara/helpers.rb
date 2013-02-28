@@ -13,10 +13,7 @@ module Capybara
       # @return [String]         Normalized text
       #
       def normalize_whitespace(text)
-        # http://en.wikipedia.org/wiki/Whitespace_character#Unicode
-        # We should have a better reference.
-        # See also http://stackoverflow.com/a/11758133/525872
-        text.to_s.gsub(/[\s\u0085\u00a0\u1680\u180e\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/, ' ').strip
+        text.to_s.gsub(/[[:space:]]+/, ' ').strip
       end
 
       ##
@@ -29,6 +26,24 @@ module Capybara
       #
       def to_regexp(text)
         text.is_a?(Regexp) ? text : Regexp.escape(normalize_whitespace(text))
+      end
+
+      ##
+      #
+      # Injects a `<base>` tag into the given HTML code, pointing to
+      # `Capybara.asset_host`.
+      #
+      # @param [String] html     HTML code to inject into
+      # @param [String]          The modified HTML code
+      #
+      def inject_asset_host(html)
+        if Capybara.asset_host
+          if Nokogiri::HTML(html).css("base").empty? and match = html.match(/<head[^<]*?>/)
+            html.clone.insert match.end(0), "<base href='#{Capybara.asset_host}' />"
+          end
+        else
+          html
+        end
       end
     end
   end

@@ -1,6 +1,23 @@
 require 'forwardable'
 
 module Capybara
+
+  ##
+  # A {Capybara::Result} represents a collection of {Capybara::Element} on the page. It is possible to interact with this
+  # collection similar to an Array because it implements Enumerable and offers the following Array methods through delegation:
+  #
+  # * []
+  # * each()
+  # * at()
+  # * size()
+  # * count()
+  # * length()
+  # * first()
+  # * last()
+  # * empty?()
+  #
+  # @see Capybara::Element
+  #
   class Result
     include Enumerable
     extend Forwardable
@@ -16,19 +33,6 @@ module Capybara
 
     def matches_count?
       @query.matches_count?(@result.size)
-    end
-
-    def find!
-      raise find_error if @result.size != 1
-      @result.first
-    end
-
-    def find_error
-      if @result.size == 0
-        Capybara::ElementNotFound.new("Unable to find #{@query.description}")
-      elsif @result.size > 1
-        Capybara::Ambiguous.new("Ambiguous match, found #{size} elements matching #{@query.description}")
-      end
     end
 
     def failure_message

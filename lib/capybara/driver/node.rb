@@ -8,7 +8,11 @@ module Capybara
         @native = native
       end
 
-      def text
+      def all_text
+        raise NotImplementedError
+      end
+
+      def visible_text
         raise NotImplementedError
       end
 
@@ -37,6 +41,10 @@ module Capybara
         raise NotImplementedError
       end
 
+      def hover
+        raise NotImplementedError
+      end
+      
       def drag_to(element)
         raise NotImplementedError
       end
@@ -57,10 +65,14 @@ module Capybara
         raise NotImplementedError
       end
 
+      def disabled?
+        raise NotImplementedError
+      end
+
       def path
         raise NotSupportedByDriverError
       end
-      
+
       def trigger(event)
         raise NotSupportedByDriverError
       end

@@ -15,10 +15,10 @@ module Capybara
   class InfiniteRedirectError < CapybaraError; end
 
   class << self
-    attr_accessor :asset_root, :app_host, :run_server, :default_host, :always_include_port
-    attr_accessor :server_host, :server_port
+    attr_accessor :asset_host, :app_host, :run_server, :default_host, :always_include_port
+    attr_accessor :server_host, :server_port, :exact, :match, :exact_options, :visible_text_only
     attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements
-    attr_accessor :save_and_open_page_path, :automatic_reload
+    attr_accessor :save_and_open_page_path, :automatic_reload, :raise_server_errors
     attr_writer :default_driver, :current_driver, :javascript_driver, :session_name
     attr_accessor :app
 
@@ -33,9 +33,10 @@ module Capybara
     #
     # === Configurable options
     #
-    # [asset_root = String]               Where static assets are located, used by save_and_open_page
+    # [asset_host = String]               The hostname for a server from which assets can be loaded, used by save_and_open_page
     # [app_host = String]                 The default host to use when giving a relative URL to visit
     # [always_include_port = Boolean]     Whether the Rack server's port should automatically be inserted into every visited URL (Default: false)
+    # [asset_host = String]               Where dynamic assets are hosted - will be prepended to relative asset locations if present (Default: nil)
     # [run_server = Boolean]              Whether to start a Rack server for the given Rack app (Default: true)
     # [default_selector = :css/:xpath]    Methods which take a selector use the given type by default (Default: CSS)
     # [default_wait_time = Integer]       The number of seconds to wait for asynchronous processes to finish (Default: 2)
@@ -88,19 +89,11 @@ module Capybara
     #     page.find('table#myTable').has_selector?(:row, 3)
     #     within(:row, 3) { page.should have_content('$100.000') }
     #
-    # It might be convenient to specify that the selector is automatically chosen for certain
-    # values. This way you don't have to explicitly specify that you are looking for a row, or
-    # an id. Let's say we want Capybara to treat any Symbols sent into methods like find to be
-    # treated as though they were element ids. We could achieve this like so:
+    # Here is another example:
     #
     #     Capybara.add_selector(:id) do
     #       xpath { |id| XPath.descendant[XPath.attr(:id) == id.to_s] }
-    #       match { |value| value.is_a?(Symbol) }
     #     end
-    #
-    # Now we can retrieve elements by id like this:
-    #
-    #     find(:post_123)
     #
     # Note that this particular selector already ships with Capybara.
     #
@@ -124,7 +117,7 @@ module Capybara
     #       Rack::Handler::Mongrel.run(app, :Port => port)
     #     end
     #
-    # By default, Capybara will try to run thin, falling back to webrick.
+    # By default, Capybara will try to run webrick.
     #
     # @yield [app, port]                      This block recieves a rack app and port and should run a Rack handler
     #
@@ -335,6 +328,7 @@ module Capybara
     autoload :Node,    'capybara/rack_test/node'
     autoload :Form,    'capybara/rack_test/form'
     autoload :Browser, 'capybara/rack_test/browser'
+    autoload :CSSHandlers, 'capybara/rack_test/css_handlers.rb'
   end
 
   module Selenium
@@ -349,9 +343,13 @@ Capybara.configure do |config|
   config.server {|app, port| Capybara.run_default_server(app, port)}
   config.default_selector = :css
   config.default_wait_time = 2
-  config.ignore_hidden_elements = false
+  config.ignore_hidden_elements = true
   config.default_host = "http://www.example.com"
   config.automatic_reload = true
+  config.match = :smart
+  config.exact = false
+  config.raise_server_errors = true
+  config.visible_text_only = false
 end
 
 Capybara.register_driver :rack_test do |app|

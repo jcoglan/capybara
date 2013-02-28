@@ -26,7 +26,7 @@ GitHub): http://groups.google.com/group/ruby-capybara
 To install, type
 
 ```bash
-sudo gem install capybara
+gem install capybara
 ```
 
 If you are using Rails, add this line to your test helper file:
@@ -102,11 +102,13 @@ describe "the signup process", :type => :feature do
   end
 
   it "signs me in" do
+    visit '/sessions/new'
     within("#session") do
       fill_in 'Login', :with => 'user@example.com'
       fill_in 'Password', :with => 'password'
     end
     click_link 'Sign in'
+    page.should have_content 'Success'
   end
 end
 ```
@@ -131,21 +133,25 @@ feature "Signing up" do
   end
 
   scenario "Signing in with correct credentials" do
+    visit '/sessions/new'
     within("#session") do
       fill_in 'Login', :with => 'user@example.com'
       fill_in 'Password', :with => 'caplin'
     end
     click_link 'Sign in'
+    page.should have_content 'Success'
   end
 
   given(:other_user) { User.make(:email => 'other@example.com', :password => 'rous') }
 
   scenario "Signing in as another user" do
+    visit '/sessions/new'
     within("#session") do
       fill_in 'Login', :with => other_user.email
       fill_in 'Password', :with => other_user.password
     end
     click_link 'Sign in'
+    page.should have_content 'Invalid email or password'
   end
 end
 ```
@@ -401,7 +407,6 @@ certain elements, and working with and manipulating those elements.
 ```ruby
 page.has_selector?('table tr')
 page.has_selector?(:xpath, '//table/tr')
-page.has_no_selector?(:content)
 
 page.has_xpath?('//table/tr')
 page.has_css?('table tr.foo')
@@ -416,7 +421,6 @@ You can use these with RSpec's magic matchers:
 ```ruby
 page.should have_selector('table tr')
 page.should have_selector(:xpath, '//table/tr')
-page.should have_no_selector(:content)
 
 page.should have_xpath('//table/tr')
 page.should have_css('table tr.foo')
@@ -523,6 +527,49 @@ Finally, in drivers that support it, you can save a screenshot:
 ```ruby
 page.save_screenshot('screenshot.png')
 ```
+
+## Matching
+
+It is possible to customize how Capybara finds elements. At your disposal
+are two options, `Capybara.exact` and `Capybara.match`.
+
+### Exactness
+
+`Capybara.exact` and the `exact` option work together with the `is` expression
+inside the XPath gem. When `exact` is true, all `is` expressions match exactly,
+when it is false, they allow substring matches. Many of the seletors built into
+Capybara use the `is` expression. This way you can specify whether you want to
+allow substring matches or not. `Capybara.exact` is false by default.
+
+For example:
+
+```ruby
+click_link("Password") # also matches "Password confirmation"
+Capybara.exact = true
+click_link("Password") # does not match "Password confirmation"
+click_link("Password", exact: false) # can be overridden
+```
+
+### Strategy
+
+Using `Capybara.match` and the equivalent `match` option, you can control how
+Capybara behaves when multiple elements all match a query. There are currently
+four different strategies built into Capybara:
+
+1. **first:** Just picks the first element that matches.
+2. **one:** Raises an error if more than one element matches.
+3. **smart:** If `exact` is `true`, raises an error if more than one element
+   matches, just like `one`. If `exact` is `false`, it will first try to find
+   an exact match. An error is raised if more than one element is found. If no
+   element is found, a new search is performed which allows partial matches. If
+   that search returns multiple matches, an error is raised.
+4. **prefer_exact:** If multiple matches are found, some of which are exact,
+   and some of which are not, then the first eaxctly matching element is
+   returned.
+
+The default for `Capybara.match` is `:smart`. To emulate the behaviour in
+Capybara 2.0.x, set `Capybara.match` to `:one`. To emulate the behaviour in
+Capybara 1.x, set `Capybara.match` to `:prefer_exact`.
 
 ## Transactions and database setup
 

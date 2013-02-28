@@ -1,6 +1,6 @@
 module Capybara
   class Selector
-    attr_reader :name, :custom_filters
+    attr_reader :name, :custom_filters, :format
 
 
     class << self
@@ -27,16 +27,16 @@ module Capybara
     end
 
     def xpath(&block)
+      @format = :xpath
       @xpath = block if block
       @xpath
     end
 
     # Same as xpath, but wrap in XPath.css().
     def css(&block)
-      if block
-        @xpath = xpath { |*args| XPath.css(block.call(*args)) }
-      end
-      @xpath
+      @format = :css
+      @css = block if block
+      @css
     end
 
     def match(&block)
@@ -50,7 +50,11 @@ module Capybara
     end
 
     def call(locator)
-      @xpath.call(locator)
+      if @format==:css
+        @css.call(locator)
+      else
+        @xpath.call(locator)
+      end
     end
 
     def match?(locator)
@@ -142,10 +146,6 @@ end
 Capybara.add_selector(:file_field) do
   label "file field"
   xpath { |locator| XPath::HTML.file_field(locator) }
-end
-
-Capybara.add_selector(:content) do
-  xpath { |content| XPath::HTML.content(content) }
 end
 
 Capybara.add_selector(:table) do

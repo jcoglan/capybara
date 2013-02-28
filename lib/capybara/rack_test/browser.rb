@@ -80,8 +80,12 @@ class Capybara::RackTest::Browser
     @dom ||= Nokogiri::HTML(html)
   end
 
-  def find(selector)
-    dom.xpath(selector).map { |node| Capybara::RackTest::Node.new(self, node) }
+  def find(format, selector)
+    if format==:css
+      dom.css(selector, Capybara::RackTest::CSSHandlers.new)
+    else
+      dom.xpath(selector)
+    end.map { |node| Capybara::RackTest::Node.new(self, node) }
   end
 
   def html
@@ -89,7 +93,11 @@ class Capybara::RackTest::Browser
   rescue Rack::Test::Error
     ""
   end
-
+  
+  def title
+    dom.xpath("//title").text
+  end
+  
 protected
 
   def build_rack_mock_session

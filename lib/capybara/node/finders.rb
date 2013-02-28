@@ -19,11 +19,29 @@ module Capybara
       #     page.find('li', :text => 'Quox').click_link('Delete')
       #
       # @param (see Capybara::Node::Finders#all)
-      # @return [Capybara::Element]           The found element
-      # @raise  [Capybara::ElementNotFound]   If the element can't be found before time expires
+      # @option options [Boolean] match        The matching strategy to use.
+      # @option options [false, Numeric] wait  How long to wait for the element to appear.
+      #
+      # @return [Capybara::Element]            The found element
+      # @raise  [Capybara::ElementNotFound]    If the element can't be found before time expires
       #
       def find(*args)
-        synchronize { all(*args).find! }.tap(&:allow_reload!)
+        query = Capybara::Query.new(*args)
+        synchronize(query.wait) do
+          if query.match == :smart or query.match == :prefer_exact
+            result = resolve_query(query, true)
+            result = resolve_query(query, false) if result.size == 0 and not query.exact?
+          else
+            result = resolve_query(query)
+          end
+          if query.match == :one or query.match == :smart and result.size > 1
+            raise Capybara::Ambiguous.new("Ambiguous match, found #{result.size} elements matching #{query.description}")
+          end
+          if result.size == 0
+            raise Capybara::ElementNotFound.new("Unable to find #{query.description}")
+          end
+          result.first
+        end.tap(&:allow_reload!)
       end
 
       ##
@@ -33,8 +51,8 @@ module Capybara
       # @param [String] locator       Which field to find
       # @return [Capybara::Element]   The found element
       #
-      def find_field(locator)
-        find(:field, locator)
+      def find_field(locator, options={})
+        find(:field, locator, options)
       end
       alias_method :field_labeled, :find_field
 
@@ -45,8 +63,8 @@ module Capybara
       # @param [String] locator       Which link to find
       # @return [Capybara::Element]   The found element
       #
-      def find_link(locator)
-        find(:link, locator)
+      def find_link(locator, options={})
+        find(:link, locator, options)
       end
 
       ##
@@ -56,8 +74,8 @@ module Capybara
       # @param [String] locator       Which button to find
       # @return [Capybara::Element]   The found element
       #
-      def find_button(locator)
-        find(:button, locator)
+      def find_button(locator, options={})
+        find(:button, locator, options)
       end
 
       ##
@@ -67,8 +85,8 @@ module Capybara
       # @param [String] id            Which element to find
       # @return [Capybara::Element]   The found element
       #
-      def find_by_id(id)
-        find(:id, id)
+      def find_by_id(id, options={})
+        find(:id, id, options)
       end
 
       ##
@@ -103,18 +121,12 @@ module Capybara
       #   @param [String] locator                    The selector
       #   @option options [String, Regexp] text      Only find elements which contain this text or match this regexp
       #   @option options [Boolean] visible          Only find elements that are visible on the page. Setting this to false
-      #                                              (the default, unless Capybara.ignore_hidden_elements = true), finds
-      #                                              invisible _and_ visible elements.
-      # @return [Array[Capybara::Element]]           The found elements
+      #                                              finds invisible _and_ visible elements.
+      #   @option options [Boolean] exact            Control whether `is` expressions in the given XPath match exactly or partially
+      # @return [Capybara::Result]                   A collection of found elements
       #
       def all(*args)
-        query = Capybara::Query.new(*args)
-        elements = synchronize do
-          base.find(query.xpath).map do |node|
-            Capybara::Node::Element.new(session, node, self, query)
-          end
-        end
-        Capybara::Result.new(elements, query)
+        resolve_query(Capybara::Query.new(*args))
       end
 
       ##
@@ -130,6 +142,21 @@ module Capybara
       #
       def first(*args)
         all(*args).first
+      end
+
+    private
+
+      def resolve_query(query, exact=nil)
+        elements = synchronize do
+          if query.selector.format==:css
+            base.find_css(query.css)
+          else
+            base.find_xpath(query.xpath(exact))
+          end.map do |node|
+            Capybara::Node::Element.new(session, node, self, query)
+          end
+        end
+        Capybara::Result.new(elements, query)
       end
     end
   end

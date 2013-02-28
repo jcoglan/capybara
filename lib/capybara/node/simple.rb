@@ -26,7 +26,7 @@ module Capybara
       #
       # @return [String]    The text of the element
       #
-      def text
+      def text(type=nil)
         native.text
       end
 
@@ -110,6 +110,15 @@ module Capybara
 
       ##
       #
+      # Whether or not the element is disabled.
+      #
+      # @return [Boolean]     Whether the element is disabled
+      def disabled?
+        native[:disabled]
+      end
+
+      ##
+      #
       # Whether or not the element is selected.
       #
       # @return [Boolean]     Whether the element is selected
@@ -118,7 +127,7 @@ module Capybara
         native[:selected]
       end
 
-      def synchronize
+      def synchronize(seconds=nil)
         yield # simple nodes don't need to wait
       end
 
@@ -130,9 +139,26 @@ module Capybara
         yield # simple nodes don't need to wait
       end
 
-      def all(*args)
-        query = Capybara::Query.new(*args)
-        elements = native.xpath(query.xpath).map do |node|
+      def title
+        native.xpath("//title").first.text
+      end
+
+      def has_title?(content)
+        title.match(Capybara::Helpers.to_regexp(content))
+      end
+
+      def has_no_title?(content)
+        not has_title?(content)
+      end
+
+    private
+
+      def resolve_query(query, exact=nil)
+        elements = if query.selector.format == :css
+          native.css(query.css)
+        else
+          native.xpath(query.xpath(exact))
+        end.map do |node|
           self.class.new(node)
         end
         Capybara::Result.new(elements, query)

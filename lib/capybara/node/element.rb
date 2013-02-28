@@ -42,10 +42,26 @@ module Capybara
 
       ##
       #
-      # @return [String]    The text of the element
+      # Retrieve the text of the element. If `Capybara.ignore_hidden_elements`
+      # is `true`, which it is by default, then this will return only text
+      # which is visible. The exact semantics of this may differ between
+      # drivers, but generally any text within elements with `display:none` is
+      # ignored. This behaviour can be overridden by passing `:all` to this
+      # method.
       #
-      def text
-        synchronize { base.text }
+      # @param [:all, :visible]    Whether to return only visible or all text
+      #
+      # @return [String]           The text of the element
+      #
+      def text(type=nil)
+        type ||= :all unless Capybara.ignore_hidden_elements or Capybara.visible_text_only
+        synchronize do
+          if type == :all
+            base.all_text
+          else
+            base.visible_text
+          end
+        end
       end
 
       ##
@@ -105,6 +121,14 @@ module Capybara
 
       ##
       #
+      # Hover on the Element
+      #
+      def hover
+        synchronize { base.hover }
+      end
+
+      ##
+      #
       # @return [String]      The tag name of the element
       #
       def tag_name
@@ -140,6 +164,16 @@ module Capybara
       #
       def selected?
         synchronize { base.selected? }
+      end
+
+      ##
+      #
+      # Whether or not the element is disabled.
+      #
+      # @return [Boolean]     Whether the element is disabled
+      #
+      def disabled?
+        synchronize { base.disabled? }
       end
 
       ##

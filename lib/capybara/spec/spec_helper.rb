@@ -19,6 +19,12 @@ module Capybara
         Capybara.app_host = nil
         Capybara.default_selector = :xpath
         Capybara.default_wait_time = 1
+        Capybara.ignore_hidden_elements = true
+        Capybara.exact = false
+        Capybara.exact_options = false
+        Capybara.raise_server_errors = true
+        Capybara.visible_text_only = false
+        Capybara.match = :smart
       end
 
       def filter(requires, metadata)

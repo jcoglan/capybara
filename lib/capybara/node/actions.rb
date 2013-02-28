@@ -9,8 +9,8 @@ module Capybara
       #
       # @param [String] locator      Text, id or value of link or button
       #
-      def click_link_or_button(locator)
-        find(:link_or_button, locator).click
+      def click_link_or_button(locator, options={})
+        find(:link_or_button, locator, options).click
       end
       alias_method :click_on, :click_link_or_button
 
@@ -20,9 +20,11 @@ module Capybara
       # alt text inside the link.
       #
       # @param [String] locator      Text, id or text of link
+      # @param options
+      # @option options [String] :href    The value the href attribute must be
       #
-      def click_link(locator)
-        find(:link, locator).click
+      def click_link(locator, options={})
+        find(:link, locator, options).click
       end
 
       ##
@@ -31,8 +33,8 @@ module Capybara
       #
       # @param [String] locator      Text, id or value of button
       #
-      def click_button(locator)
-        find(:button, locator).click
+      def click_button(locator, options={})
+        find(:button, locator, options).click
       end
 
       ##
@@ -47,7 +49,8 @@ module Capybara
       #
       def fill_in(locator, options={})
         raise "Must pass a hash containing 'with'" if not options.is_a?(Hash) or not options.has_key?(:with)
-        find(:fillable_field, locator).set(options[:with])
+        with = options.delete(:with)
+        find(:fillable_field, locator, options).set(with)
       end
 
       ##
@@ -59,8 +62,8 @@ module Capybara
       #
       # @param [String] locator           Which radio button to choose
       #
-      def choose(locator)
-        find(:radio_button, locator).set(true)
+      def choose(locator, options={})
+        find(:radio_button, locator, options).set(true)
       end
 
       ##
@@ -72,8 +75,8 @@ module Capybara
       #
       # @param [String] locator           Which check box to check
       #
-      def check(locator)
-        find(:checkbox, locator).set(true)
+      def check(locator, options={})
+        find(:checkbox, locator, options).set(true)
       end
 
       ##
@@ -85,8 +88,8 @@ module Capybara
       #
       # @param [String] locator           Which check box to uncheck
       #
-      def uncheck(locator)
-        find(:checkbox, locator).set(false)
+      def uncheck(locator, options={})
+        find(:checkbox, locator, options).set(false)
       end
 
       ##
@@ -102,9 +105,10 @@ module Capybara
       #
       def select(value, options={})
         if options.has_key?(:from)
-          find(:select, options[:from]).find(:option, value).select_option
+          from = options.delete(:from)
+          find(:select, from, options).find(:option, value, options).select_option
         else
-          find(:option, value).select_option
+          find(:option, value, options).select_option
         end
       end
 
@@ -121,9 +125,10 @@ module Capybara
       #
       def unselect(value, options={})
         if options.has_key?(:from)
-          find(:select, options[:from]).find(:option, value).unselect_option
+          from = options.delete(:from)
+          find(:select, from, options).find(:option, value, options).unselect_option
         else
-          find(:option, value).unselect_option
+          find(:option, value, options).unselect_option
         end
       end
 
@@ -137,11 +142,11 @@ module Capybara
       # @param [String] locator       Which field to attach the file to
       # @param [String] path          The path of the file that will be attached, or an array of paths
       #
-      def attach_file(locator, path)
+      def attach_file(locator, path, options={})
         Array(path).each do |p|
           raise Capybara::FileNotFound, "cannot attach file, #{p} does not exist" unless File.exist?(p.to_s)
         end
-        find(:file_field, locator).set(path)
+        find(:file_field, locator, options).set(path)
       end
     end
   end

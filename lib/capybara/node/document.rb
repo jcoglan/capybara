@@ -17,8 +17,12 @@ module Capybara
       #
       # @return [String]    The text of the document
       #
-      def text
-        find(:xpath, '/html').text
+      def text(type=nil)
+        find(:xpath, '/html').text(type)
+      end
+
+      def title
+        session.driver.title
       end
     end
   end
