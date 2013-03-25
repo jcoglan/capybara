@@ -28,11 +28,13 @@
 
 <p>
   <input type="text" id="test_field" value="monkey"/>
+  <input type="text" readonly="readonly" value="should not change" />
   <textarea id="normal">
 banana</textarea>
   <textarea id="additional_newline">
 
 banana</textarea>
+  <textarea readonly="readonly">textarea should not change</textarea>
   <a href="/redirect_back">BackToMyself</a>
   <a title="twas a fine link" href="/redirect">A link came first</a>
   <a title="a fine link" href="/with_simple_html">A link</a>
@@ -49,6 +51,7 @@ banana</textarea>
   <input type="text" checked="checked" id="checked_field">
   <a href="/redirect"><img width="20" height="20" alt="very fine image" /></a>
   <a href="/with_simple_html"><img width="20" height="20" alt="fine image" /></a>
+  <a href="/with_simple_html" disabled="disabled">Disabled link</a>
 
   <a href="?query_string=true">Naked Query String</a>
   <% if params[:query_string] %>
@@ -82,8 +85,10 @@ banana</textarea>
 </div>
 
 <ul>
-  <li id="john_monkey">Monkey John</li>
-  <li id="paul_monkey">Monkey Paul</li>
+  <li class="beatle guitarist" id="john">John</li>
+  <li class="beatle bassist drummer" id="paul">Paul</li>
+  <li class="beatle guitarist" id="george">George</li>
+  <li class="beatle drummer" id="ringo">Ringo</li>
 </ul>
 
 <div>
@@ -94,4 +99,4 @@ banana</textarea>
   <div class="almost_singular">almost singular</div>
 </div>
 
-<input type="text" disabled name="disabled_text" value="This is disabled"/>
+<input type="text" disabled="disabled" name="disabled_text" value="This is disabled"/>

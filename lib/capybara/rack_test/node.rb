@@ -27,7 +27,7 @@ class Capybara::RackTest::Node < Capybara::Driver::Node
     elsif input_field?
       set_input(value)
     elsif textarea?
-      native.content = value.to_s
+      native.content = value.to_s unless self[:readonly]
     end
   end
 
@@ -73,9 +73,13 @@ class Capybara::RackTest::Node < Capybara::Driver::Node
   end
 
   def disabled?
-    string_node.disabled?
+    if %w(option optgroup).include? tag_name
+      string_node.disabled? || find_xpath("parent::*")[0].disabled?
+    else
+      string_node.disabled?
+    end
   end
-
+  
   def path
     native.path
   end
@@ -160,7 +164,7 @@ private
       end
       native.remove
     else
-      native['value'] = value.to_s
+      native['value'] = value.to_s unless self[:readonly]
     end
   end
 

@@ -31,7 +31,6 @@ module Capybara
       def initialize(session, base)
         @session = session
         @base = base
-        @unsynchronized = false
       end
 
       # overridden in subclasses, e.g. Capybara::Node::Element
@@ -64,49 +63,43 @@ module Capybara
       # until a certain amount of time passes. The amount of time defaults to
       # {Capybara.default_wait_time} and can be overriden through the `seconds`
       # argument. This time is compared with the system time to see how much
-      # time has passed. If the return value of {Time.now} is stubbed out,
+      # time has passed. If the return value of `Time.now` is stubbed out,
       # Capybara will raise `Capybara::FrozenInTime`.
       #
-      # @param [Integer] seconds          Number of seconds to retry this block
+      # @param  [Integer] seconds         Number of seconds to retry this block
       # @return [Object]                  The result of the given block
-      # @raise [Capybara::FrozenInTime]   If the return value of {Time.now} appears stuck
+      # @raise  [Capybara::FrozenInTime]  If the return value of `Time.now` appears stuck
       #
       def synchronize(seconds=Capybara.default_wait_time)
         start_time = Time.now
 
-        begin
+        if session.synchronized
           yield
-        rescue => e
-          raise e if @unsynchronized
-          raise e unless driver.wait?
-          raise e unless driver.invalid_element_errors.include?(e.class) || e.is_a?(Capybara::ElementNotFound)
-          raise e if (Time.now - start_time) >= seconds
-          sleep(0.05)
-          raise Capybara::FrozenInTime, "time appears to be frozen, Capybara does not work with libraries which freeze time, consider using time travelling instead" if Time.now == start_time
-          reload if Capybara.automatic_reload
-          retry
+        else
+          session.synchronized = true
+          begin
+            yield
+          rescue => e
+            raise e unless driver.wait?
+            raise e unless catch_error?(e)
+            raise e if (Time.now - start_time) >= seconds
+            sleep(0.05)
+            raise Capybara::FrozenInTime, "time appears to be frozen, Capybara does not work with libraries which freeze time, consider using time travelling instead" if Time.now == start_time
+            reload if Capybara.automatic_reload
+            retry
+          ensure
+            session.synchronized = false
+          end
         end
       end
 
-      ##
-      #
-      # Within the given block, prevent synchronize from having any effect.
-      #
-      # This is an internal method which should not be called unless you are
-      # absolutely sure of what you're doing.
-      #
-      # @api private
-      # @return [Object]                  The result of the given block
-      #
-      def unsynchronized
-        orig = @unsynchronized
-        @unsynchronized = true
-        yield
-      ensure
-        @unsynchronized = orig
-      end
-
     protected
+
+      def catch_error?(error)
+        (driver.invalid_element_errors + [Capybara::ElementNotFound]).any? do |type|
+          error.is_a?(type)
+        end
+      end
 
       def driver
         session.driver
