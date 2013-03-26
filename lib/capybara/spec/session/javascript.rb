@@ -164,7 +164,7 @@ shared_examples_for "session with javascript support" do
         @session.visit('/with_js')
         @session.select('My Waiting Option', :from => 'waiter')
         @session.evaluate_script('activeRequests == 1').should be_true
-        @session.wait_until(5.0) do
+        @session.wait_until do
           @session.evaluate_script('activeRequests == 0')
         end
         @session.evaluate_script('activeRequests == 0').should be_true
