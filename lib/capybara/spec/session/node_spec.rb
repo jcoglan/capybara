@@ -57,6 +57,11 @@ Capybara::SpecHelper.spec "node" do
     it "should not swallow extra newlines in textarea" do
       @session.find('//textarea[@id="additional_newline"]').value.should == "\nbanana"
     end
+
+    it "return any HTML content in textarea" do
+      @session.find('//textarea[1]').set("some <em>html</em> here")
+      @session.find('//textarea[1]').value.should == "some <em>html</em> here"
+    end
   end
 
   describe "#set" do
@@ -71,18 +76,18 @@ Capybara::SpecHelper.spec "node" do
       @session.first('//input').set('')
       @session.first('//input').value.should == ''
     end
-    
+
     it "should not set if the text field is readonly" do
       @session.first('//input[@readonly]').value.should == 'should not change'
       @session.first('//input[@readonly]').set('changed')
       @session.first('//input[@readonly]').value.should == 'should not change'
     end
-    
+
     it "should not set if the textarea is readonly" do
       @session.first('//textarea[@readonly]').value.should == 'textarea should not change'
       @session.first('//textarea[@readonly]').set('changed')
       @session.first('//textarea[@readonly]').value.should == 'textarea should not change'
-    end      
+    end
   end
 
   describe "#tag_name" do
@@ -99,13 +104,13 @@ Capybara::SpecHelper.spec "node" do
       @session.find('//input[@id="customer_name"]').should be_disabled
       @session.find('//input[@id="customer_email"]').should_not be_disabled
     end
-    
+
     it "should see disabled options as disabled" do
       @session.visit('/form')
       @session.find('//select[@id="form_title"]/option[1]').should_not be_disabled
       @session.find('//select[@id="form_title"]/option[@disabled]').should be_disabled
     end
-    
+
     it "should see enabled options in disabled select as disabled" do
       @session.visit('/form')
       @session.find('//select[@id="form_disabled_select"]/option').should be_disabled
@@ -170,8 +175,8 @@ Capybara::SpecHelper.spec "node" do
       @session.find('//div[contains(., "Dropped!")]').should_not be_nil
     end
   end
-  
-  describe '#hover', :requires => [:hover] do  
+
+  describe '#hover', :requires => [:hover] do
     it "should allow hovering on an element" do
       pending "Selenium with firefox doesn't currently work with this (selenium with chrome does)" if @session.respond_to?(:mode) && @session.mode == :selenium && @session.driver.browser.browser == :firefox
       @session.visit('/with_hover')
