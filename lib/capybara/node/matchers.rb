@@ -85,7 +85,8 @@ module Capybara
       # @raise [Capybara::ExpectationNotMet]      If the selector does not exist
       #
       def assert_selector(*args)
-        synchronize do
+        query = Capybara::Query.new(*args)
+        synchronize(query.wait) do
           result = all(*args)
           result.matches_count? or raise Capybara::ExpectationNotMet, result.failure_message
         end
@@ -101,7 +102,8 @@ module Capybara
       # @raise [Capybara::ExpectationNotMet]      If the selector exists
       #
       def assert_no_selector(*args)
-        synchronize do
+        query = Capybara::Query.new(*args)
+        synchronize(query.wait) do
           result = all(*args)
           result.matches_count? and raise Capybara::ExpectationNotMet, result.negative_failure_message
         end
@@ -215,7 +217,8 @@ module Capybara
       #   @return [Boolean]                          Whether it exists
       #
       def has_text?(*args)
-        synchronize do
+        query = Capybara::Query.new(*args)
+        synchronize(query.wait) do
           raise ExpectationNotMet unless text_found?(*args)
         end
         return true
@@ -233,7 +236,8 @@ module Capybara
       # @return [Boolean]  Whether it doesn't exist
       #
       def has_no_text?(*args)
-        synchronize do
+        query = Capybara::Query.new(*args)
+        synchronize(query.wait) do
           raise ExpectationNotMet if text_found?(*args)
         end
         return true
@@ -276,8 +280,8 @@ module Capybara
       # @param [String] locator      The text, value or id of a button to check for
       # @return [Boolean]            Whether it exists
       #
-      def has_button?(locator)
-        has_selector?(:button, locator)
+      def has_button?(locator, options={})
+        has_selector?(:button, locator, options)
       end
 
       ##
@@ -288,8 +292,8 @@ module Capybara
       # @param [String] locator      The text, value or id of a button to check for
       # @return [Boolean]            Whether it doesn't exist
       #
-      def has_no_button?(locator)
-        has_no_selector?(:button, locator)
+      def has_no_button?(locator, options={})
+        has_no_selector?(:button, locator, options)
       end
 
       ##
@@ -341,8 +345,8 @@ module Capybara
       # @param [String] locator           The label, name or id of a checked field
       # @return [Boolean]                 Whether it exists
       #
-      def has_checked_field?(locator)
-        has_selector?(:field, locator, :checked => true)
+      def has_checked_field?(locator, options={})
+        has_selector?(:field, locator, options.merge(:checked => true))
       end
 
       ##
@@ -352,10 +356,10 @@ module Capybara
       # checked.
       #
       # @param [String] locator           The label, name or id of a checked field
-      # @return [Boolean]                 Whether it doesn't exists
+      # @return [Boolean]                 Whether it doesn't exist
       #
-      def has_no_checked_field?(locator)
-        has_no_selector?(:field, locator, :checked => true)
+      def has_no_checked_field?(locator, options={})
+        has_no_selector?(:field, locator, options.merge(:checked => true))
       end
 
       ##
@@ -367,8 +371,8 @@ module Capybara
       # @param [String] locator           The label, name or id of an unchecked field
       # @return [Boolean]                 Whether it exists
       #
-      def has_unchecked_field?(locator)
-        has_selector?(:field, locator, :unchecked => true)
+      def has_unchecked_field?(locator, options={})
+        has_selector?(:field, locator, options.merge(:unchecked => true))
       end
 
       ##
@@ -378,10 +382,10 @@ module Capybara
       # unchecked.
       #
       # @param [String] locator           The label, name or id of an unchecked field
-      # @return [Boolean]                 Whether it doesn't exists
+      # @return [Boolean]                 Whether it doesn't exist
       #
-      def has_no_unchecked_field?(locator)
-        has_no_selector?(:field, locator, :unchecked => true)
+      def has_no_unchecked_field?(locator, options={})
+        has_no_selector?(:field, locator, options.merge(:unchecked => true))
       end
 
       ##

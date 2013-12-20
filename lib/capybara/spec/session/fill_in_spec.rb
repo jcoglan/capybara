@@ -57,6 +57,12 @@ Capybara::SpecHelper.spec "#fill_in" do
     extract_results(@session)['description'].should == 'is <strong>very</strong> secret!'
   end
 
+  it "should handle newlines in a textarea" do
+    @session.fill_in('form_description', :with => "\nSome text\n")
+    @session.click_button('awesome')
+    extract_results(@session)['description'].should == "\r\nSome text\r\n"
+  end
+
   it "should fill in a field with a custom type" do
     @session.fill_in('Schmooo', :with => 'Schmooo is the game')
     @session.click_button('awesome')
@@ -109,7 +115,7 @@ Capybara::SpecHelper.spec "#fill_in" do
     extract_results(@session)['first_name'].should == 'Harry'
   end
 
-  it "casts to string if field has maxlength", :focus => true do
+  it "casts to string if field has maxlength" do
     @session.fill_in(:'form_zipcode', :with => 1234567)
     @session.click_button('awesome')
     extract_results(@session)['zipcode'].should == '12345'
@@ -119,7 +125,17 @@ Capybara::SpecHelper.spec "#fill_in" do
     it 'should only trigger onchange once' do
       @session.visit('/with_js')
       @session.fill_in('with_change_event', :with => 'some value')
-      @session.find(:css, '#with_change_event').value.should == 'some value'
+      # click outside the field to trigger the change event
+      @session.find(:css, 'body').click
+      @session.find(:css, '.change_event_triggered', :match => :one).should have_text 'some value'
+    end
+
+    it 'should trigger change when clearing field' do
+      @session.visit('/with_js')
+      @session.fill_in('with_change_event', :with => '')
+      # click outside the field to trigger the change event
+      @session.find(:css, 'body').click
+      @session.should have_selector(:css, '.change_event_triggered', :match => :one)
     end
   end
 

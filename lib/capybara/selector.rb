@@ -103,7 +103,7 @@ Capybara.add_selector(:field) do
   filter(:checked) { |node, value| not(value ^ node.checked?) }
   filter(:unchecked) { |node, value| (value ^ node.checked?) }
   filter(:disabled, :default => false) { |node, value| not(value ^ node.disabled?) }
-  filter(:with) { |node, with| node.value == with }
+  filter(:with) { |node, with| node.value == with.to_s }
   filter(:type) do |node, type|
     if ['textarea', 'select'].include?(type)
       node.tag_name == type
@@ -146,6 +146,7 @@ Capybara.add_selector(:radio_button) do
   xpath { |locator| XPath::HTML.radio_button(locator) }
   filter(:checked) { |node, value| not(value ^ node.checked?) }
   filter(:unchecked) { |node, value| (value ^ node.checked?) }
+  filter(:option)  { |node, value|  node.value == value.to_s }
   filter(:disabled, :default => false) { |node, value| not(value ^ node.disabled?) }
 end
 
@@ -153,6 +154,7 @@ Capybara.add_selector(:checkbox) do
   xpath { |locator| XPath::HTML.checkbox(locator) }
   filter(:checked) { |node, value| not(value ^ node.checked?) }
   filter(:unchecked) { |node, value| (value ^ node.checked?) }
+  filter(:option)  { |node, value|  node.value == value.to_s }
   filter(:disabled, :default => false) { |node, value| not(value ^ node.disabled?) }
 end
 

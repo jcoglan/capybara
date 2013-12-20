@@ -58,10 +58,25 @@ Capybara::SpecHelper.spec "node" do
       @session.find('//textarea[@id="additional_newline"]').value.should == "\nbanana"
     end
 
+    it "should not swallow leading newlines for set content in textarea" do
+      @session.find('//textarea[@id="normal"]').set("\nbanana")
+      @session.find('//textarea[@id="normal"]').value.should == "\nbanana"
+    end
+
     it "return any HTML content in textarea" do
       @session.find('//textarea[1]').set("some <em>html</em> here")
       @session.find('//textarea[1]').value.should == "some <em>html</em> here"
     end
+    
+    it "defaults to 'on' for checkbox" do
+      @session.visit('/form')
+      @session.find('//input[@id="valueless_checkbox"]').value.should == 'on'
+    end
+
+    it "defaults to 'on' for radio buttons" do
+      @session.visit('/form')
+      @session.find('//input[@id="valueless_radio"]').value.should == 'on'
+    end    
   end
 
   describe "#set" do
@@ -87,6 +102,25 @@ Capybara::SpecHelper.spec "node" do
       @session.first('//textarea[@readonly]').value.should == 'textarea should not change'
       @session.first('//textarea[@readonly]').set('changed')
       @session.first('//textarea[@readonly]').value.should == 'textarea should not change'
+    end
+
+    it 'should allow me to change the contents of a contenteditable element', :requires => [:js] do
+      @session.visit('/with_js')
+      @session.find(:css,'#existing_content_editable').set('WYSIWYG')
+      @session.find(:css,'#existing_content_editable').text.should == 'WYSIWYG'
+    end
+
+    it 'should allow me to set the contents of a contenteditable element', :requires => [:js] do
+      @session.visit('/with_js')
+      @session.find(:css,'#blank_content_editable').set('WYSIWYG')
+      @session.find(:css,'#blank_content_editable').text.should == 'WYSIWYG'
+    end
+
+    it 'should allow me to change the contents of a contenteditable elements child', :requires => [:js] do
+      pending "Selenium doesn't like editing nested contents"
+      @session.visit('/with_js')
+      @session.find(:css,'#existing_content_editable_child').set('WYSIWYG')
+      @session.find(:css,'#existing_content_editable_child').text.should == 'WYSIWYG'
     end
   end
 
@@ -125,6 +159,8 @@ Capybara::SpecHelper.spec "node" do
 
       @session.find('//div[@id="hidden"]').should_not be_visible
       @session.find('//div[@id="hidden_via_ancestor"]').should_not be_visible
+      @session.find('//div[@id="hidden_attr"]').should_not be_visible
+      @session.find('//a[@id="hidden_attr_via_ancestor"]').should_not be_visible
     end
   end
 
@@ -178,7 +214,6 @@ Capybara::SpecHelper.spec "node" do
 
   describe '#hover', :requires => [:hover] do
     it "should allow hovering on an element" do
-      pending "Selenium with firefox doesn't currently work with this (selenium with chrome does)" if @session.respond_to?(:mode) && @session.mode == :selenium && @session.driver.browser.browser == :firefox
       @session.visit('/with_hover')
       @session.find(:css,'.hidden_until_hover', :visible => false).should_not be_visible
       @session.find(:css,'.wrapper').hover

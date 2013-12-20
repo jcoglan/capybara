@@ -14,12 +14,14 @@ module Capybara
   class NotSupportedByDriverError < CapybaraError; end
   class InfiniteRedirectError < CapybaraError; end
 
+  EMPTY_HTML_FILE_PATH = File.expand_path('./capybara/empty.html', File.dirname(__FILE__))
+
   class << self
     attr_accessor :asset_host, :app_host, :run_server, :default_host, :always_include_port
-    attr_accessor :server_host, :server_port, :exact, :match, :exact_options, :visible_text_only
+    attr_accessor :server_port, :exact, :match, :exact_options, :visible_text_only
     attr_accessor :default_selector, :default_wait_time, :ignore_hidden_elements
     attr_accessor :save_and_open_page_path, :automatic_reload, :raise_server_errors
-    attr_writer :default_driver, :current_driver, :javascript_driver, :session_name
+    attr_writer :default_driver, :current_driver, :javascript_driver, :session_name, :server_host
     attr_accessor :app
 
     ##
@@ -166,7 +168,7 @@ module Capybara
     #
     def run_default_server(app, port)
       require 'rack/handler/webrick'
-      Rack::Handler::WEBrick.run(app, :Port => port, :AccessLog => [], :Logger => WEBrick::Log::new(nil, 0))
+      Rack::Handler::WEBrick.run(app, :Host => server_host, :Port => port, :AccessLog => [], :Logger => WEBrick::Log::new(nil, 0))
     end
 
     ##
@@ -212,6 +214,14 @@ module Capybara
       yield
     ensure
       @current_driver = previous_driver
+    end
+
+    ##
+    #
+    # @return [String]    The IP address bound by default server
+    #
+    def server_host
+      @server_host || '127.0.0.1'
     end
 
     ##
@@ -265,6 +275,21 @@ module Capybara
       yield
     ensure
       self.session_name = :default
+    end
+
+    ##
+    #
+    # Parse raw html into a document using Nokogiri, and adjust textarea contents as defined by the spec.
+    #
+    # @param [String] html              The raw html
+    # @return [Nokogiri::HTML::Document]      HTML document
+    #
+    def HTML(html)
+      Nokogiri::HTML(html).tap do |document|
+        document.xpath('//textarea').each do |textarea|
+          textarea.content=textarea.content.sub(/\A\n/,'')
+        end
+      end
     end
 
     def included(base)

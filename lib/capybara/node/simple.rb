@@ -18,7 +18,7 @@ module Capybara
       attr_reader :native
 
       def initialize(native)
-        native = Nokogiri::HTML(native) if native.is_a?(String)
+        native = Capybara::HTML(native) if native.is_a?(String)
         @native = native
       end
 
@@ -74,7 +74,7 @@ module Capybara
       #
       def value
         if tag_name == 'textarea'
-          native.content.sub(/\A\n/, '')
+          native.content
         elsif tag_name == 'select'
           if native['multiple'] == 'multiple'
             native.xpath(".//option[@selected='selected']").map { |option| option[:value] || option.content  }
@@ -82,6 +82,8 @@ module Capybara
             option = native.xpath(".//option[@selected='selected']").first || native.xpath(".//option").first
             option[:value] || option.content if option
           end
+        elsif tag_name == 'input' && %w(radio checkbox).include?(native[:type])
+          native[:value] || 'on'
         else
           native[:value]
         end
@@ -95,7 +97,7 @@ module Capybara
       # @return [Boolean]     Whether the element is visible
       #
       def visible?
-        native.xpath("./ancestor-or-self::*[contains(@style, 'display:none') or contains(@style, 'display: none') or name()='script' or name()='head']").size == 0
+        native.xpath("./ancestor-or-self::*[contains(@style, 'display:none') or contains(@style, 'display: none') or @hidden or name()='script' or name()='head']").size == 0
       end
 
       ##

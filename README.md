@@ -2,7 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/jnicklas/capybara.png)](http://travis-ci.org/jnicklas/capybara)
 [![Dependency Status](https://gemnasium.com/jnicklas/capybara.png)](https://gemnasium.com/jnicklas/capybara)
-[![Code Quality](https://codeclimate.com/badge.png)](https://codeclimate.com/github/jnicklas/capybara)
+[![Code Climate](https://codeclimate.com/github/jnicklas/capybara.png)](https://codeclimate.com/github/jnicklas/capybara)
 
 Capybara helps you test web applications by simulating how a real user would
 interact with your app. It is agnostic about the driver running your tests and
@@ -96,7 +96,7 @@ Capybara with `:type => :feature`.
 You can now write your specs like so:
 
 ```ruby
-describe "the signup process", :type => :feature do
+describe "the signin process", :type => :feature do
   before :each do
     User.make(:email => 'user@example.com', :password => 'caplin')
   end
@@ -108,7 +108,7 @@ describe "the signup process", :type => :feature do
       fill_in 'Password', :with => 'password'
     end
     click_link 'Sign in'
-    page.should have_content 'Success'
+    expect(page).to have_content 'Success'
   end
 end
 ```
@@ -127,7 +127,7 @@ end
 Finally, Capybara also comes with a built in DSL for creating descriptive acceptance tests:
 
 ```ruby
-feature "Signing up" do
+feature "Signing in" do
   background do
     User.make(:email => 'user@example.com', :password => 'caplin')
   end
@@ -139,7 +139,7 @@ feature "Signing up" do
       fill_in 'Password', :with => 'caplin'
     end
     click_link 'Sign in'
-    page.should have_content 'Success'
+    expect(page).to have_content 'Success'
   end
 
   given(:other_user) { User.make(:email => 'other@example.com', :password => 'rous') }
@@ -151,7 +151,7 @@ feature "Signing up" do
       fill_in 'Password', :with => other_user.password
     end
     click_link 'Sign in'
-    page.should have_content 'Invalid email or password'
+    expect(page).to have_content 'Invalid email or password'
   end
 end
 ```
@@ -162,7 +162,7 @@ end
 
 ## Using Capybara with Test::Unit
 
-* If you are using Rails, add the following code in your `test_helper.rb` 
+* If you are using Rails, add the following code in your `test_helper.rb`
     file to make Capybara available in all test cases deriving from
     `ActionDispatch::IntegrationTest`:
 
@@ -209,7 +209,7 @@ end
 Set up your base class as with Test::Unit. (On Rails, the right base class
 could be something other than ActionDispatch::IntegrationTest.)
 
-The capybara_minitest_spec gem ([Github](https://github.com/ordinaryzelig/capybara_minitest_spec),
+The capybara_minitest_spec gem ([GitHub](https://github.com/ordinaryzelig/capybara_minitest_spec),
 [rubygems.org](https://rubygems.org/gems/capybara_minitest_spec)) provides MiniTest::Spec
 expectations for Capybara. For example:
 
@@ -271,7 +271,7 @@ RackTest can be configured with a set of headers like this:
 
 ```ruby
 Capybara.register_driver :rack_test do |app|
-  Capybara::RackTest::Driver.new(app, :browser => :chrome)
+  Capybara::RackTest::Driver.new(app, :headers => { 'HTTP_USER_AGENT' => 'Capybara' })
 end
 ```
 
@@ -281,10 +281,12 @@ See the section on adding and configuring drivers.
 
 At the moment, Capybara supports [Selenium 2.0
 (Webdriver)](http://seleniumhq.org/docs/01_introducing_selenium.html#selenium-2-aka-selenium-webdriver),
-*not* Selenium RC. Provided Firefox is installed, everything is set up for you,
-and you should be able to start using Selenium right away.
+*not* Selenium RC. In order to use Selenium, you'll need to install the
+`selenium-webdriver` gem, and add it to your Gemfile if you're using bundler.
+Provided Firefox is installed, everything is set up for you, and you should be
+able to start using Selenium right away.
 
-**Note**: drivers which run the server in a different thread may not work share the
+**Note**: drivers which run the server in a different thread may not share the
 same transaction as your tests, causing data not to be shared between your test
 and test server, see "Transactions and database setup" below.
 
@@ -325,7 +327,7 @@ Capybara heavily uses XPath, which doesn't support case insensitivity.
 ### Navigating
 
 You can use the
-[#visit](http://rubydoc.info/github/jnicklas/capybara/master/Capybara/Session#visit-instance_method)
+<tt>[visit](http://rubydoc.info/github/jnicklas/capybara/master/Capybara/Session#visit-instance_method)</tt>
 method to navigate to other pages:
 
 ```ruby
@@ -449,8 +451,6 @@ within(:xpath, "//li[@id='employee']") do
   fill_in 'Name', :with => 'Jimmy'
 end
 ```
-
-**Note**: `within` will scope the actions to the _first_ (not _any_) element that matches the selector.
 
 There are special methods for restricting the scope to a specific fieldset,
 identified by either an id or the text of the fieldset's legend tag, and to a
@@ -794,7 +794,7 @@ end
 
 Capybara makes it convenient to switch between different drivers. It also exposes
 an API to tweak those drivers with whatever settings you want, or to add your own
-drivers. This is how to switch the selenium driver to use chrome:
+drivers. This is how to override the selenium driver configuration to use chrome:
 
 ```ruby
 Capybara.register_driver :selenium do |app|
@@ -802,13 +802,17 @@ Capybara.register_driver :selenium do |app|
 end
 ```
 
-However, it's also possible to give this a different name, so tests can switch
-between using different browsers effortlessly:
+However, it's also possible to give this configuration a different name.
 
 ```ruby
 Capybara.register_driver :selenium_chrome do |app|
   Capybara::Selenium::Driver.new(app, :browser => :chrome)
 end
+```
+
+Then tests can switch between using different browsers effortlessly:
+```ruby
+Capybara.current_driver = :selenium_chrome
 ```
 
 Whatever is returned from the block should conform to the API described by

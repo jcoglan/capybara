@@ -37,10 +37,11 @@ module Capybara
       :has_no_unchecked_field?, :query, :assert_selector, :assert_no_selector
     ]
     SESSION_METHODS = [
-      :body, :html, :current_url, :current_host, :evaluate_script, :source,
-      :visit, :within, :within_fieldset, :within_table, :within_frame,
-      :within_window, :current_path, :save_page, :save_and_open_page,
-      :save_screenshot, :reset_session!, :response_headers, :status_code,
+      :body, :html, :source, :current_url, :current_host, :current_path,
+      :execute_script, :evaluate_script, :visit, :go_back, :go_forward,
+      :within, :within_fieldset, :within_table, :within_frame, :within_window,
+      :save_page, :save_and_open_page, :save_screenshot,
+      :reset_session!, :response_headers, :status_code,
       :title, :has_title?, :has_no_title?, :current_scope
     ]
     DSL_METHODS = NODE_METHODS + SESSION_METHODS
@@ -74,8 +75,11 @@ module Capybara
     # Reset the session, removing all cookies.
     #
     def reset!
-      driver.reset! if @touched
-      @touched = false
+      if @touched
+        driver.reset!
+        @touched = false
+        assert_no_selector :xpath, "/html/body/*"
+      end
       raise @server.error if Capybara.raise_server_errors and @server and @server.error
     ensure
       @server.reset_error! if @server
@@ -195,19 +199,46 @@ module Capybara
 
     ##
     #
-    # Execute the given block for a particular scope on the page. Within will find the first
-    # element matching the given selector and execute the block scoped to that element:
+    # Move back a single entry in the browser's history.
+    #
+    def go_back
+      driver.go_back
+    end
+
+    ##
+    #
+    # Move forward a single entry in the browser's history.
+    #
+    def go_forward
+      driver.go_forward
+    end
+
+    ##
+    #
+    # Executes the given block within the context of a node. `within` takes the
+    # same options as `find`, as well as a block. For the duration of the
+    # block, any command to Capybara will be handled as though it were scoped
+    # to the given element.
     #
     #     within(:xpath, '//div[@id="delivery-address"]') do
     #       fill_in('Street', :with => '12 Main Street')
     #     end
     #
-    # It is possible to omit the first parameter, in that case, the selector is assumed to be
-    # of the type set in Capybara.default_selector.
+    # Just as with `find`, if multiple elements match the selector given to
+    # `within`, an error will be raised, and just as with `find`, this
+    # behaviour can be controlled through the `:match` and `:exact` options.
+    #
+    # It is possible to omit the first parameter, in that case, the selector is
+    # assumed to be of the type set in Capybara.default_selector.
     #
     #     within('div#delivery-address') do
     #       fill_in('Street', :with => '12 Main Street')
     #     end
+    #
+    # Note that a lot of uses of `within` can be replaced more succinctly with
+    # chaining:
+    #
+    #     find('div#delivery-address').fill_in('Street', :with => '12 Main Street')
     #
     # @overload within(*find_args)
     #   @param (see Capybara::Node::Finders#all)
@@ -215,7 +246,7 @@ module Capybara
     # @overload within(a_node)
     #   @param [Capybara::Node::Base] a_node   The node in whose scope the block should be evaluated
     #
-    # @raise  [Capybara::ElementNotFound]   If the scope can't be found before time expires
+    # @raise  [Capybara::ElementNotFound]      If the scope can't be found before time expires
     #
     def within(*args)
       new_scope = if args.first.is_a?(Capybara::Node::Base) then args.first else find(*args) end
@@ -262,9 +293,12 @@ module Capybara
     #   @param [String] name           name of a frame
     #
     def within_frame(frame_handle)
+      scopes.push(nil)
       driver.within_frame(frame_handle) do
         yield
       end
+    ensure
+      scopes.pop
     end
 
     ##
@@ -275,7 +309,10 @@ module Capybara
     # @param [String] handle of the window
     #
     def within_window(handle, &blk)
+      scopes.push(nil)
       driver.within_window(handle, &blk)
+    ensure
+      scopes.pop
     end
 
     ##
@@ -313,7 +350,7 @@ module Capybara
     #
     def save_page(path=nil)
       path ||= "capybara-#{Time.new.strftime("%Y%m%d%H%M%S")}#{rand(10**10)}.html"
-      path = File.expand_path(path, Capybara.save_and_open_page_path) if Capybara.save_and_open_page_path
+      path = File.expand_path(path, Capybara.save_and_open_page_path)
 
       FileUtils.mkdir_p(File.dirname(path))
 
@@ -328,10 +365,15 @@ module Capybara
     # @param  [String] file_name  The path to where it should be saved [optional]
     #
     def save_and_open_page(file_name=nil)
-      require "launchy"
-      Launchy.open(save_page(file_name))
-    rescue LoadError
-      warn "Please install the launchy gem to open page with save_and_open_page"
+      file_name = save_page(file_name)
+
+      begin
+        require "launchy"
+        Launchy.open(file_name)
+      rescue LoadError
+        warn "Page saved to #{file_name} with save_and_open_page."
+        warn "Please install the launchy gem to open page automatically."
+      end
     end
 
     ##
@@ -382,7 +424,7 @@ module Capybara
     end
 
     def current_scope
-      scopes.last
+      scopes.last || document
     end
 
   private

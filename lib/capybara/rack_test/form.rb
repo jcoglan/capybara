@@ -28,7 +28,10 @@ class Capybara::RackTest::Form < Capybara::RackTest::Node
       case field.name
       when 'input'
         if %w(radio checkbox).include? field['type']
-          merge_param!(params, field['name'].to_s, field['value'].to_s) if field['checked']
+          if field['checked']
+            node=Capybara::RackTest::Node.new(self.driver, field)
+            merge_param!(params, field['name'].to_s, node.value.to_s)
+          end          
         elsif %w(submit image).include? field['type']
           # TO DO identify the click button here (in document order, rather
           # than leaving until the end of the params)
@@ -60,7 +63,7 @@ class Capybara::RackTest::Form < Capybara::RackTest::Node
           merge_param!(params, field['name'].to_s, (option['value'] || option.text).to_s) if option
         end
       when 'textarea'
-        merge_param!(params, field['name'].to_s, field.text.to_s)
+        merge_param!(params, field['name'].to_s, field.text.to_s.gsub(/\n/, "\r\n"))
       end
     end
     merge_param!(params, button[:name], button[:value] || "") if button[:name]

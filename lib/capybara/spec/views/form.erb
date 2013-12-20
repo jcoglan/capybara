@@ -137,6 +137,14 @@
   <p>
 
   <p>
+    <label for="form_newline">NewLine</label></br>
+    <textarea name="form[newline]" id="form_newline">
+
+New line after and before textarea tag
+</textarea>
+  </p>
+
+  <p>
     <input type="radio" name="form[gender]" value="male" id="gender_male"/>
     <label for="gender_male">Male</label>
     <input type="radio" name="form[gender]" value="female" id="gender_female" checked="checked"/>
@@ -152,6 +160,13 @@
     <label for="form_pets_cat">Cat</label>
     <input type="checkbox" value="hamster" name="form[pets][]" id="form_pets_hamster" checked="checked"/>
     <label for="form_pets_hamster">Hamster</label>
+  </p>
+  
+  <p>
+    <input type="checkbox" name="form[valueless_checkbox]" id="valueless_checkbox" checked="checked"/>
+    <label for="valueless_checkbox">Valueless Checkbox</label>
+    <input type="radio" name="form[valueless_radio]" id="valueless_radio" checked="checked"/>
+    <label for="valueless_radio">Valueless Radio</label>
   </p>
 
   <p>
@@ -235,6 +250,13 @@
   </p>
 
   <p>
+    <label for="form_disabled_unchecked_checkbox">
+      Disabled Unchecked Checkbox
+      <input type="checkbox" name="form[disabled_unchecked_checkbox]" value="Should not see me" id="form_disabled_unchecked_checkbox" disabled="disabled" />
+    </label>
+  </p>
+
+  <p>
     <label for="form_disabled_radio">
       Disabled Radio
       <input type="radio" name="form[disabled_radio]" value="Should not see me" id="form_disabled_radio" checked="checked" disabled="disabled" />
@@ -283,6 +305,8 @@
   <button type="submit" name="form[other_form_button]" value="other_form_button" form="form1">Form1</button>
 </form>
 
+<button type="submit" name="form[no_form_button]" value="no_form_button">No Form</button>
+
 <textarea name="form[outside_textarea]" form="form1">Some text here</textarea>
 <select name="form[outside_select]" form="form1">
   <option>Lisp</option>
@@ -314,6 +338,20 @@
   <p>
     <input type="hidden" name="form[dummy]" value="ensure params[:form] exists"/>
     <input type="submit" value="Upload Empty"/>
+  <p>
+</form>
+
+<form action="/upload_empty" method="post" enctype="multipart/form-data">
+  <p>
+    <label>
+      <input type="file" name="form[file]" multiple="multiple"/>
+      Multiple empty files
+    </label>
+  </p>
+
+  <p>
+    <input type="hidden" name="form[dummy]" value="ensure params[:form] exists"/>
+    <input type="submit" value="Upload Empty Multiple"/>
   <p>
 </form>
 
@@ -402,3 +440,5 @@
     <input type="submit" name="form[no_action]" value="No Action" />
   </p>
 </form>
+
+

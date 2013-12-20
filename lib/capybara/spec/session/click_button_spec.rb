@@ -102,9 +102,17 @@ Capybara::SpecHelper.spec '#click_button' do
         @results['gender'].should == 'female'
       end
 
+      it "should default radio value to 'on' if none specified" do
+        @results['valueless_radio'].should == 'on'
+      end
+
       it "should serialize check boxes" do
         @results['pets'].should include('dog', 'hamster')
         @results['pets'].should_not include('cat')
+      end
+      
+      it "should default checkbox value to 'on' if none specififed" do
+        @results['valueless_checkbox'].should == 'on'
       end
 
       it "should serialize text areas" do
@@ -126,7 +134,11 @@ Capybara::SpecHelper.spec '#click_button' do
       it "should not serialize a select tag without options" do
         @results['tendency'].should be_nil
       end
-
+      
+      it "should convert lf to cr/lf in submitted textareas" do
+        @results['newline'].should == "\r\nNew line after and before textarea tag\r\n"
+      end
+      
       it "should not submit disabled fields" do
         @results['disabled_text_field'].should be_nil
         @results['disabled_textarea'].should be_nil
@@ -225,6 +237,12 @@ Capybara::SpecHelper.spec '#click_button' do
     end
   end
 
+  context "with submit button not associated with any form" do
+    it "should not error when clicked" do
+      lambda { @session.click_button('no_form_button') }.should_not raise_error
+    end
+  end
+
   context "with alt given on an image button" do
     it "should submit the associated form" do
       @session.click_button('oh hai thar')
@@ -236,6 +254,7 @@ Capybara::SpecHelper.spec '#click_button' do
       extract_results(@session)['first_name'].should == 'John'
     end
   end
+  
 
   context "with value given on an image button" do
     it "should submit the associated form" do
