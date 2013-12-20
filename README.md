@@ -29,13 +29,13 @@ Capybara requires Ruby 1.9.3 or later. To install, type:
 gem install capybara
 ```
 
-If you are using Rails, add this line to your test helper file:
+If the application that you are testing is a Rails app, add this line to your test helper file:
 
 ```ruby
 require 'capybara/rails'
 ```
 
-If you are not using Rails, set Capybara.app to your rack app:
+If the application that you are testing is a Rack app, but not Rails, set Capybara.app to your Rack app:
 
 ```ruby
 Capybara.app = MyRackApp
